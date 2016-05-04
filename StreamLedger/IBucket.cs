@@ -8,19 +8,21 @@ namespace StreamLedger
 	{
 		string BucketName { get; }
 
-		Task<long> ReadBucketRevisionAsync();
+		Task WriteAsync(Guid streamId, int expectedStreamRevision, IEnumerable<object> events);
 
 		Task RollbackAsync(long bucketRevision);
 
-		Task WriteStreamEventsAsync(Guid streamId, int fromStreamRevision, params object[] events);
+		Task<IEnumerable<object>> EventsAsync(Guid streamId);
+		Task<IEnumerable<object>> EventsAsync(Guid streamId, long fromBucketRevision, long toBucketRevision);
 
-		Task<IEnumerable<object>> ReadStreamEventsAsync(Guid streamId);
-		Task<IEnumerable<object>> ReadStreamEventsAsync(Guid streamId, long fromBucketRevision, long toBucketRevision);
-		Task<int> ReadStreamRevisionAsync(Guid streamId, long toBucketRevision);
+		Task<IEnumerable<CommitData>> CommitsAsync(long fromBucketRevision, long toBucketRevision);
 
-		Task<IEnumerable<object>> ReadEventsAsync(long fromBucketRevision, long toBucketRevision);
+		Task<long> BucketRevisionAsync();
 
-		Task<IEnumerable<Guid>> ReadStreamIdsAsync();
-		Task<IEnumerable<Guid>> ReadStreamIdsAsync(long fromBucketRevision, long toBucketRevision);
+		Task<int> StreamRevisionAsync(Guid streamId);
+		Task<int> StreamRevisionAsync(Guid streamId, long atBucketRevision);
+
+		Task<IEnumerable<Guid>> StreamIdsAsync();
+		Task<IEnumerable<Guid>> StreamIdsAsync(long fromBucketRevision, long toBucketRevision);
 	}
 }

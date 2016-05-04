@@ -1,13 +1,23 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using MongoDB.Driver;
 
 namespace StreamLedger.MongoDb
 {
 	public class MongoDbBucket : IBucket
 	{
+		public IMongoCollection<CommitData> Collection { get; }
+
+		public MongoDbBucket(string bucketName, IMongoCollection<CommitData> collection)
+		{
+			Collection = collection;
+			BucketName = bucketName;
+		}
+
 		public string BucketName { get; }
-		public Task<long> ReadBucketRevisionAsync()
+
+		public Task WriteAsync(Guid streamId, int expectedStreamRevision, IEnumerable<object> events)
 		{
 			throw new NotImplementedException();
 		}
@@ -17,37 +27,42 @@ namespace StreamLedger.MongoDb
 			throw new NotImplementedException();
 		}
 
-		public Task WriteStreamEventsAsync(Guid streamId, int fromStreamRevision, params object[] events)
+		public Task<IEnumerable<object>> EventsAsync(Guid streamId)
 		{
 			throw new NotImplementedException();
 		}
 
-		public Task<IEnumerable<object>> ReadStreamEventsAsync(Guid streamId)
+		public Task<IEnumerable<object>> EventsAsync(Guid streamId, long fromBucketRevision, long toBucketRevision)
 		{
 			throw new NotImplementedException();
 		}
 
-		public Task<IEnumerable<object>> ReadStreamEventsAsync(Guid streamId, long fromBucketRevision, long toBucketRevision)
+		public Task<IEnumerable<CommitData>> CommitsAsync(long fromBucketRevision, long toBucketRevision)
 		{
 			throw new NotImplementedException();
 		}
 
-		public Task<int> ReadStreamRevisionAsync(Guid streamId, long toBucketRevision)
+		public Task<long> BucketRevisionAsync()
 		{
 			throw new NotImplementedException();
 		}
 
-		public Task<IEnumerable<object>> ReadEventsAsync(long fromBucketRevision, long toBucketRevision)
+		public Task<int> StreamRevisionAsync(Guid streamId)
 		{
 			throw new NotImplementedException();
 		}
 
-		public Task<IEnumerable<Guid>> ReadStreamIdsAsync()
+		public Task<int> StreamRevisionAsync(Guid streamId, long atBucketRevision)
 		{
 			throw new NotImplementedException();
 		}
 
-		public Task<IEnumerable<Guid>> ReadStreamIdsAsync(long fromBucketRevision, long toBucketRevision)
+		public Task<IEnumerable<Guid>> StreamIdsAsync()
+		{
+			throw new NotImplementedException();
+		}
+
+		public Task<IEnumerable<Guid>> StreamIdsAsync(long fromBucketRevision, long toBucketRevision)
 		{
 			throw new NotImplementedException();
 		}

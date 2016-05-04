@@ -13,7 +13,7 @@ namespace StreamLedger.MongoDb
 
 		static MongoDbBucketManager()
 		{
-			BsonClassMap.RegisterClassMap<CommitContract>(cm =>
+			BsonClassMap.RegisterClassMap<CommitData>(cm =>
 			{
 				cm.MapIdProperty(c => c.BucketRevision);
 				cm.AutoMap();
@@ -37,11 +37,15 @@ namespace StreamLedger.MongoDb
 		{
 			var collection = CollectionFromBucket(bucketName);
 
-			var builder = new IndexKeysDefinitionBuilder<CommitContract>();
+			var builder = new IndexKeysDefinitionBuilder<CommitData>();
 
 			await collection.Indexes.CreateManyAsync(new[]
 			{
-				new CreateIndexModel<CommitContract>(builder.Ascending(p => p.StreamId))
+				new CreateIndexModel<CommitData>(builder
+					.Ascending(p => p.StreamId)),
+				new CreateIndexModel<CommitData>(builder
+					.Ascending(p => p.StreamId)
+					.Ascending(p => p.StreamRevisionStart), new CreateIndexOptions { Unique = true })
 			});
 		}
 
@@ -62,9 +66,9 @@ namespace StreamLedger.MongoDb
 
 			return $"{bucketName}.commits";
 		}
-		private IMongoCollection<CommitContract> CollectionFromBucket(string bucketName)
+		private IMongoCollection<CommitData> CollectionFromBucket(string bucketName)
 		{
-			return Database.GetCollection<CommitContract>(CollectionNameFromBucket(bucketName));
+			return Database.GetCollection<CommitData>(CollectionNameFromBucket(bucketName));
 		}
 
 		private bool IsValidBucketName(string bucketName)

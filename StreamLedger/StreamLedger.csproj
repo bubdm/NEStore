@@ -40,6 +40,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="CommitData.cs" />
     <Compile Include="IBucket.cs" />
     <Compile Include="IBucketManager.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

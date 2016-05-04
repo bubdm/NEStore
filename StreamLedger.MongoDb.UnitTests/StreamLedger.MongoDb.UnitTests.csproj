@@ -72,7 +72,9 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="MongoDbBucketManagerTest.cs" />
+    <Compile Include="BucketManagerFixture.cs" />
+    <Compile Include="MongoDbBucketTests.cs" />
+    <Compile Include="MongoDbBucketManagerTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
