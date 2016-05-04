@@ -52,6 +52,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="CommitContract.cs" />
     <Compile Include="MongoDbBucket.cs" />
     <Compile Include="MongoDbBucketManager.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

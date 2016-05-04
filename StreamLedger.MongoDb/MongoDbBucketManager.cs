@@ -2,13 +2,24 @@
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using MongoDB.Bson;
+using MongoDB.Bson.Serialization;
 using MongoDB.Driver;
 
 namespace StreamLedger.MongoDb
 {
 	public class MongoDbBucketManager : IBucketManager
 	{
-		private readonly IMongoDatabase _database;
+		public IMongoDatabase Database { get; }
+
+		static MongoDbBucketManager()
+		{
+			BsonClassMap.RegisterClassMap<CommitContract>(cm =>
+			{
+				cm.MapIdProperty(c => c.BucketRevision);
+				cm.AutoMap();
+				cm.SetIgnoreExtraElements(true);
+			});
+		}
 
 		public MongoDbBucketManager(string connectionString)
 		{
@@ -19,17 +30,24 @@ namespace StreamLedger.MongoDb
 
 			var client = new MongoClient(url.ToMongoUrl());
 
-			_database = client.GetDatabase(url.DatabaseName);
+			Database = client.GetDatabase(url.DatabaseName);
 		}
 
 		public async Task EnsureBucketAsync(string bucketName)
 		{
-			CollectionFromBucket(bucketName);
+			var collection = CollectionFromBucket(bucketName);
+
+			var builder = new IndexKeysDefinitionBuilder<CommitContract>();
+
+			await collection.Indexes.CreateManyAsync(new[]
+			{
+				new CreateIndexModel<CommitContract>(builder.Ascending(p => p.StreamId))
+			});
 		}
 
-		public Task DeleteBucketAsync(string bucketName)
+		public async Task DeleteBucketAsync(string bucketName)
 		{
-			throw new NotImplementedException();
+			await Database.DropCollectionAsync(CollectionNameFromBucket(bucketName));
 		}
 
 		public IBucket Bucket(string bucketName)
@@ -37,12 +55,16 @@ namespace StreamLedger.MongoDb
 			throw new NotImplementedException();
 		}
 
-		private IMongoCollection<BsonDocument> CollectionFromBucket(string bucketName)
+		private string CollectionNameFromBucket(string bucketName)
 		{
 			if (!IsValidBucketName(bucketName))
 				throw new ArgumentException("Invalid bucket name");
 
-			return _database.GetCollection<BsonDocument>(bucketName);
+			return $"{bucketName}.commits";
+		}
+		private IMongoCollection<CommitContract> CollectionFromBucket(string bucketName)
+		{
+			return Database.GetCollection<CommitContract>(CollectionNameFromBucket(bucketName));
 		}
 
 		private bool IsValidBucketName(string bucketName)
