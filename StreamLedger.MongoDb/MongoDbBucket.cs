@@ -1,23 +1,30 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using MongoDB.Bson;
 using MongoDB.Driver;
 
 namespace StreamLedger.MongoDb
 {
 	public class MongoDbBucket : IBucket
 	{
+		private readonly ILedger _ledger;
 		public IMongoCollection<CommitData> Collection { get; }
+		public string BucketName { get; }
 
-		public MongoDbBucket(string bucketName, IMongoCollection<CommitData> collection)
+		public MongoDbBucket(ILedger ledger, string bucketName, IMongoCollection<CommitData> collection)
 		{
+			_ledger = ledger;
 			Collection = collection;
 			BucketName = bucketName;
 		}
 
-		public string BucketName { get; }
-
 		public Task WriteAsync(Guid streamId, int expectedStreamRevision, IEnumerable<object> events)
+		{
+			throw new NotImplementedException();
+		}
+
+		public Task DispatchUndispatchedAsync()
 		{
 			throw new NotImplementedException();
 		}
@@ -27,44 +34,73 @@ namespace StreamLedger.MongoDb
 			throw new NotImplementedException();
 		}
 
-		public Task<IEnumerable<object>> EventsAsync(Guid streamId)
+		public Task<IEnumerable<object>> GetEventsAsync(Guid streamId)
 		{
 			throw new NotImplementedException();
 		}
 
-		public Task<IEnumerable<object>> EventsAsync(Guid streamId, long fromBucketRevision, long toBucketRevision)
+		public Task<IEnumerable<object>> GetEventsAsync(Guid streamId, long fromBucketRevision, long toBucketRevision)
 		{
 			throw new NotImplementedException();
 		}
 
-		public Task<IEnumerable<CommitData>> CommitsAsync(long fromBucketRevision, long toBucketRevision)
+		public Task<bool> HasUndispatchedCommitsAsync()
 		{
 			throw new NotImplementedException();
 		}
 
-		public Task<long> BucketRevisionAsync()
+		public Task<IEnumerable<CommitData>> GetCommitsAsync(long fromBucketRevision, long toBucketRevision)
 		{
 			throw new NotImplementedException();
 		}
 
-		public Task<int> StreamRevisionAsync(Guid streamId)
+		public async Task<long> GetBucketRevisionAsync()
 		{
-			throw new NotImplementedException();
+			var result = await Collection
+				.Find(Builders<CommitData>.Filter.Empty)
+				.Sort(Builders<CommitData>.Sort.Descending(p => p.BucketRevision))
+				.FirstOrDefaultAsync();
+
+			return result?.BucketRevision ?? 0;
 		}
 
-		public Task<int> StreamRevisionAsync(Guid streamId, long atBucketRevision)
+		public Task<int> GetStreamRevisionAsync(Guid streamId)
 		{
-			throw new NotImplementedException();
+			return GetStreamRevisionAsync(streamId, long.MaxValue);
 		}
 
-		public Task<IEnumerable<Guid>> StreamIdsAsync()
+		public async Task<int> GetStreamRevisionAsync(Guid streamId, long atBucketRevision)
 		{
-			throw new NotImplementedException();
+			var filter = Builders<CommitData>.Filter.Eq(p => p.StreamId, streamId);
+			if (atBucketRevision != long.MaxValue)
+				filter = filter & Builders<CommitData>.Filter.Lte(p => p.BucketRevision, atBucketRevision);
+
+			var result = await Collection
+				.Find(filter)
+				.Sort(Builders<CommitData>.Sort.Descending(p => p.BucketRevision))
+				.FirstOrDefaultAsync();
+
+			return result?.StreamRevisionEnd ?? 0;
 		}
 
-		public Task<IEnumerable<Guid>> StreamIdsAsync(long fromBucketRevision, long toBucketRevision)
+		public Task<IEnumerable<Guid>> GetStreamIdsAsync()
 		{
-			throw new NotImplementedException();
+			return GetStreamIdsAsync(long.MinValue, long.MaxValue);
+		}
+
+		public async Task<IEnumerable<Guid>> GetStreamIdsAsync(long fromBucketRevision, long toBucketRevision)
+		{
+			var filter = Builders<CommitData>.Filter.Empty;
+			if (toBucketRevision != long.MaxValue)
+				filter = filter & Builders<CommitData>.Filter.Lte(p => p.BucketRevision, toBucketRevision);
+			if (fromBucketRevision != long.MinValue && fromBucketRevision != 0)
+				filter = filter & Builders<CommitData>.Filter.Gte(p => p.BucketRevision, fromBucketRevision);
+
+			var cursor = await Collection
+				.DistinctAsync(p => p.StreamId, filter);
+			var result = await cursor.ToListAsync();
+
+			return result;
 		}
 	}
 }

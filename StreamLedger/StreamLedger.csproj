@@ -42,7 +42,8 @@
   <ItemGroup>
     <Compile Include="CommitData.cs" />
     <Compile Include="IBucket.cs" />
-    <Compile Include="IBucketManager.cs" />
+    <Compile Include="IEventDispatcher.cs" />
+    <Compile Include="ILedger.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

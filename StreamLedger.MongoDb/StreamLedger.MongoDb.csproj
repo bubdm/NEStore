@@ -53,7 +53,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="MongoDbBucket.cs" />
-    <Compile Include="MongoDbBucketManager.cs" />
+    <Compile Include="MongoDbLedger.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>

@@ -9,5 +9,6 @@ namespace StreamLedger
 		public int StreamRevisionStart { get; set; }
 		public int StreamRevisionEnd { get; set; }
 		public object[] Events { get; set; }
+		public bool Dispatched { get; set; }
 	}
 }
