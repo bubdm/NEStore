@@ -4,6 +4,6 @@ namespace StreamLedger
 {
 	public interface IEventDispatcher
 	{
-		Task Dispatch(object @event);
+		Task DispatchAsync(object @event);
 	}
 }

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Configuration;
 using System.Linq;
+using Xunit;
 
 namespace StreamLedger.MongoDb.UnitTests
 {
@@ -17,10 +18,15 @@ namespace StreamLedger.MongoDb.UnitTests
 
 		public void Dispose()
 		{
+			CleanUp();
+		}
+
+		public void CleanUp()
+		{
 			Target.DeleteBucketAsync(BucketName).Wait();
 		}
 
-		public MongoDbLedger CreateTarget()
+		private static MongoDbLedger CreateTarget()
 		{
 			var cns = ConfigurationManager.ConnectionStrings["mongoTest"].ConnectionString;
 

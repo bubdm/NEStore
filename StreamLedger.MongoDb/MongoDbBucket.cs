@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using MongoDB.Bson;
 using MongoDB.Driver;
@@ -19,9 +20,23 @@ namespace StreamLedger.MongoDb
 			BucketName = bucketName;
 		}
 
-		public Task WriteAsync(Guid streamId, int expectedStreamRevision, IEnumerable<object> events)
+		public async Task WriteAsync(Guid streamId, int expectedStreamRevision, IEnumerable<object> events)
 		{
-			throw new NotImplementedException();
+			var eventsArray = events.ToArray();
+
+			var commit = new CommitData
+			{
+				BucketRevision = await GetBucketRevisionAsync() + 1,
+				Dispatched = false,
+				Events = eventsArray,
+				StreamId = streamId,
+				StreamRevisionStart = expectedStreamRevision,
+				StreamRevisionEnd = expectedStreamRevision + eventsArray.Length
+			};
+
+			await Collection.InsertOneAsync(commit);
+
+			await DispatchCommitAsync(commit);
 		}
 
 		public Task DispatchUndispatchedAsync()
@@ -36,22 +51,47 @@ namespace StreamLedger.MongoDb
 
 		public Task<IEnumerable<object>> GetEventsAsync(Guid streamId)
 		{
-			throw new NotImplementedException();
+			return GetEventsAsync(streamId, long.MinValue, long.MaxValue);
 		}
 
-		public Task<IEnumerable<object>> GetEventsAsync(Guid streamId, long fromBucketRevision, long toBucketRevision)
+		public async Task<IEnumerable<object>> GetEventsAsync(Guid streamId, long fromBucketRevision, long toBucketRevision)
 		{
-			throw new NotImplementedException();
+			var filter = Builders<CommitData>.Filter.Eq(p => p.StreamId, streamId);
+			if (fromBucketRevision != long.MinValue || fromBucketRevision != 0)
+				filter = filter & Builders<CommitData>.Filter.Gte(p => p.BucketRevision, fromBucketRevision);
+			if (toBucketRevision != long.MaxValue)
+				filter = filter & Builders<CommitData>.Filter.Lte(p => p.BucketRevision, toBucketRevision);
+
+			var commits = await Collection
+				.Find(filter)
+				.Sort(Builders<CommitData>.Sort.Descending(p => p.BucketRevision))
+				.ToListAsync();
+
+			return commits.SelectMany(c => c.Events);
 		}
 
-		public Task<bool> HasUndispatchedCommitsAsync()
+		public async Task<bool> HasUndispatchedCommitsAsync()
 		{
-			throw new NotImplementedException();
+			return await Collection
+				.Find(p => p.Dispatched == false)
+				.Sort(Builders<CommitData>.Sort.Descending(p => p.BucketRevision))
+				.AnyAsync();
 		}
 
-		public Task<IEnumerable<CommitData>> GetCommitsAsync(long fromBucketRevision, long toBucketRevision)
+		public async Task<IEnumerable<CommitData>> GetCommitsAsync(long fromBucketRevision, long toBucketRevision)
 		{
-			throw new NotImplementedException();
+			var filter = Builders<CommitData>.Filter.Empty;
+			if (fromBucketRevision != long.MinValue || fromBucketRevision != 0)
+				filter = filter & Builders<CommitData>.Filter.Gte(p => p.BucketRevision, fromBucketRevision);
+			if (toBucketRevision != long.MaxValue)
+				filter = filter & Builders<CommitData>.Filter.Lte(p => p.BucketRevision, toBucketRevision);
+
+			var commits = await Collection
+				.Find(filter)
+				.Sort(Builders<CommitData>.Sort.Descending(p => p.BucketRevision))
+				.ToListAsync();
+
+			return commits;
 		}
 
 		public async Task<long> GetBucketRevisionAsync()
@@ -91,16 +131,30 @@ namespace StreamLedger.MongoDb
 		public async Task<IEnumerable<Guid>> GetStreamIdsAsync(long fromBucketRevision, long toBucketRevision)
 		{
 			var filter = Builders<CommitData>.Filter.Empty;
-			if (toBucketRevision != long.MaxValue)
-				filter = filter & Builders<CommitData>.Filter.Lte(p => p.BucketRevision, toBucketRevision);
 			if (fromBucketRevision != long.MinValue && fromBucketRevision != 0)
 				filter = filter & Builders<CommitData>.Filter.Gte(p => p.BucketRevision, fromBucketRevision);
+			if (toBucketRevision != long.MaxValue)
+				filter = filter & Builders<CommitData>.Filter.Lte(p => p.BucketRevision, toBucketRevision);
 
 			var cursor = await Collection
 				.DistinctAsync(p => p.StreamId, filter);
 			var result = await cursor.ToListAsync();
 
 			return result;
+		}
+
+		private async Task DispatchCommitAsync(CommitData commit)
+		{
+			foreach (var dispatcher in _ledger.GetDispatchers())
+			{
+				// TODO Eval if dispath in parallel
+				foreach (var e in commit.Events)
+					await dispatcher.DispatchAsync(e);
+			}
+
+			await Collection.UpdateOneAsync(
+				p => p.BucketRevision == commit.BucketRevision,
+				Builders<CommitData>.Update.Set(p => p.Dispatched, true));
 		}
 	}
 }

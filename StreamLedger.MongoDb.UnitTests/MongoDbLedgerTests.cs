@@ -23,9 +23,7 @@ namespace StreamLedger.MongoDb.UnitTests
 		[InlineData("5test")]
 		public void Bucket_name_should_be_valid(string bucketName)
 		{
-			var target = _fixture.CreateTarget();
-
-			Assert.ThrowsAsync<ArgumentException>(() => target.EnsureBucketAsync(bucketName)).Wait();
+			Assert.ThrowsAsync<ArgumentException>(() => _fixture.Target.EnsureBucketAsync(bucketName)).Wait();
 		}
 
 		[Fact]
