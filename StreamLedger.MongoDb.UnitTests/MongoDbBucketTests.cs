@@ -49,6 +49,32 @@ namespace StreamLedger.MongoDb.UnitTests
 		}
 
 		[Fact]
+		public async Task Cannot_write_with_revision_less_than_0()
+		{
+			using (var fixture = new MongoDbLedgerFixture())
+			{
+				var streamId = Guid.NewGuid();
+				
+				await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => fixture.Bucket.WriteAsync(streamId, -1, new[] { new { n1 = "v2" } }));
+			}
+		}
+
+		[Fact]
+		public async Task Cannot_write_with_the_same_revision_multiple_times()
+		{
+			using (var fixture = new MongoDbLedgerFixture())
+			{
+				var streamId = Guid.NewGuid();
+
+				var result = await fixture.Bucket.WriteAsync(streamId, 0, new[] { new { n1 = "v1" } });
+
+				await result.DispatchTask;
+
+				await Assert.ThrowsAsync<ConcurrencyWriteException>(() => fixture.Bucket.WriteAsync(streamId, 0, new[] { new { n1 = "v2" } }));
+			}
+		}
+
+		[Fact]
 		public async Task Write_multiple_events()
 		{
 			using (var fixture = new MongoDbLedgerFixture())
@@ -185,6 +211,31 @@ namespace StreamLedger.MongoDb.UnitTests
 			}
 		}
 
+		[Fact]
+		public async Task Cannot_write_new_event_if_there_are_undispatched_events()
+		{
+			using (var fixture = new MongoDbLedgerFixture())
+			{
+				var streamId = Guid.NewGuid();
+
+				var @event = new { n1 = "v1" };
+
+				// Create an undispatched event
+				fixture.Dispatcher.Setup(p => p.DispatchAsync(It.IsAny<object>()))
+					.Throws(new MyException("Some dispatch exception"));
+				var result = await fixture.Bucket.WriteAsync(streamId, 0, new[] { @event });
+				try
+				{
+					await result.DispatchTask;
+				}
+				catch (MyException)
+				{ }
+				Assert.Equal(true, await fixture.Bucket.HasUndispatchedCommitsAsync());
+
+
+				await Assert.ThrowsAsync<UndispatchedEventsFoundException>(() => fixture.Bucket.WriteAsync(streamId, 0, new[] { @event }));
+			}
+		}
 		[Serializable]
 		private class MyException : Exception
 		{
@@ -195,15 +246,7 @@ namespace StreamLedger.MongoDb.UnitTests
 			//    http://msdn.microsoft.com/library/default.asp?url=/library/en-us/dncscol/html/csharp07192001.asp
 			//
 
-			public MyException()
-			{
-			}
-
 			public MyException(string message) : base(message)
-			{
-			}
-
-			public MyException(string message, Exception inner) : base(message, inner)
 			{
 			}
 

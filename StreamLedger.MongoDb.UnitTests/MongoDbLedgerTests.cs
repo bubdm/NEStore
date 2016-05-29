@@ -14,11 +14,11 @@ namespace StreamLedger.MongoDb.UnitTests
 		[InlineData("Vsm")]
 		[InlineData("test(")]
 		[InlineData("5test")]
-		public void Bucket_name_should_be_valid(string bucketName)
+		public async Task Bucket_name_should_be_valid(string bucketName)
 		{
 			using (var fixture = new MongoDbLedgerFixture())
 			{
-				Assert.ThrowsAsync<ArgumentException>(() => fixture.Target.EnsureBucketAsync(bucketName)).Wait();
+				await Assert.ThrowsAsync<ArgumentException>(() => fixture.Target.EnsureBucketAsync(bucketName));
 			}
 		}
 

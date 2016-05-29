@@ -22,27 +22,32 @@ namespace StreamLedger.MongoDb
 
 		public async Task<WriteResult> WriteAsync(Guid streamId, int expectedStreamRevision, IEnumerable<object> events)
 		{
+			if (expectedStreamRevision < 0)
+				throw new ArgumentOutOfRangeException(nameof(expectedStreamRevision));
+
 			await AutoEnsureIndexesAsync();
+
+			await CheckForUndispatchedAsync();
 
 			var eventsArray = events.ToArray();
 
-			var commit = new CommitData
-			{
-				BucketRevision = await GetBucketRevisionAsync() + 1,
-				Dispatched = false,
-				Events = eventsArray,
-				StreamId = streamId,
-				StreamRevisionStart = expectedStreamRevision,
-				StreamRevisionEnd = expectedStreamRevision + eventsArray.Length
-			};
+			var commit = await CreateCommitAsync(streamId, expectedStreamRevision, eventsArray);
 
-			await Collection.InsertOneAsync(commit);
+			try
+			{
+				await Collection.InsertOneAsync(commit);
+			}
+			catch (MongoWriteException ex)
+			{
+				if (ex.WriteError != null && ex.WriteError.Code == 11000)
+					throw new ConcurrencyWriteException("Someone else is working on the same bucket", ex);
+			}
 
 			var dispatchTask = DispatchCommitAsync(commit);
 
 			return new WriteResult(commit, dispatchTask);
 		}
-
+		
 		public async Task DispatchUndispatchedAsync()
 		{
 			var commits = await Collection
@@ -152,6 +157,21 @@ namespace StreamLedger.MongoDb
 			return result;
 		}
 
+
+		private async Task<CommitData> CreateCommitAsync(Guid streamId, int expectedStreamRevision, object[] eventsArray)
+		{
+			var commit = new CommitData
+			{
+				BucketRevision = await GetBucketRevisionAsync() + 1,
+				Dispatched = false,
+				Events = eventsArray,
+				StreamId = streamId,
+				StreamRevisionStart = expectedStreamRevision,
+				StreamRevisionEnd = expectedStreamRevision + eventsArray.Length
+			};
+			return commit;
+		}
+
 		private async Task AutoEnsureIndexesAsync()
 		{
 			if (_indexesEnsured || !_ledger.AutoEnsureIndexes)
@@ -174,5 +194,17 @@ namespace StreamLedger.MongoDb
 				p => p.BucketRevision == commit.BucketRevision,
 				Builders<CommitData>.Update.Set(p => p.Dispatched, true));
 		}
+
+
+		private async Task CheckForUndispatchedAsync()
+		{
+			if (!_ledger.AutoCheckUndispatched)
+				return;
+
+			var found = await HasUndispatchedCommitsAsync();
+			if (found)
+				throw new UndispatchedEventsFoundException("Undispatched events found, cannot write new events");
+		}
+
 	}
 }

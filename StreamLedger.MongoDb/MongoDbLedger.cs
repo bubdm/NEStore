@@ -11,7 +11,15 @@ namespace StreamLedger.MongoDb
 	{
 		private IEventDispatcher[] _dispatchers = new IEventDispatcher[0];
 		public IMongoDatabase Database { get; }
+
+		/// <summary>
+		/// Create indexes at first write
+		/// </summary>
 		public bool AutoEnsureIndexes { get; set; } = true;
+		/// <summary>
+		/// Check for undispatched events at each write
+		/// </summary>
+		public bool AutoCheckUndispatched { get; set; } = true;
 
 		static MongoDbLedger()
 		{

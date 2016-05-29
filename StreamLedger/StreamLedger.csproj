@@ -41,10 +41,12 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="CommitData.cs" />
+    <Compile Include="ConcurrencyWriteException.cs" />
     <Compile Include="IBucket.cs" />
     <Compile Include="IEventDispatcher.cs" />
     <Compile Include="ILedger.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="UndispatchedEventsFoundException.cs" />
     <Compile Include="WriteResult.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
