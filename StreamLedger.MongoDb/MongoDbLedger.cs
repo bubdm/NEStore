@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using MongoDB.Bson;
 using MongoDB.Bson.Serialization;
 using MongoDB.Driver;
 
@@ -12,6 +11,7 @@ namespace StreamLedger.MongoDb
 	{
 		private IEventDispatcher[] _dispatchers = new IEventDispatcher[0];
 		public IMongoDatabase Database { get; }
+		public bool AutoEnsureIndexes { get; set; } = true;
 
 		static MongoDbLedger()
 		{

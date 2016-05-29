@@ -2,26 +2,28 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using MongoDB.Bson;
 using MongoDB.Driver;
 
 namespace StreamLedger.MongoDb
 {
 	public class MongoDbBucket : IBucket
 	{
-		private readonly ILedger _ledger;
+		private bool _indexesEnsured;
+		private readonly MongoDbLedger _ledger;
 		public IMongoCollection<CommitData> Collection { get; }
 		public string BucketName { get; }
 
-		public MongoDbBucket(ILedger ledger, string bucketName, IMongoCollection<CommitData> collection)
+		public MongoDbBucket(MongoDbLedger ledger, string bucketName, IMongoCollection<CommitData> collection)
 		{
 			_ledger = ledger;
 			Collection = collection;
 			BucketName = bucketName;
 		}
 
-		public async Task WriteAsync(Guid streamId, int expectedStreamRevision, IEnumerable<object> events)
+		public async Task<WriteResult> WriteAsync(Guid streamId, int expectedStreamRevision, IEnumerable<object> events)
 		{
+			await AutoEnsureIndexesAsync();
+
 			var eventsArray = events.ToArray();
 
 			var commit = new CommitData
@@ -36,12 +38,20 @@ namespace StreamLedger.MongoDb
 
 			await Collection.InsertOneAsync(commit);
 
-			await DispatchCommitAsync(commit);
+			var dispatchTask = DispatchCommitAsync(commit);
+
+			return new WriteResult(commit, dispatchTask);
 		}
 
-		public Task DispatchUndispatchedAsync()
+		public async Task DispatchUndispatchedAsync()
 		{
-			throw new NotImplementedException();
+			var commits = await Collection
+				.Find(p => p.Dispatched == false)
+				.Sort(Builders<CommitData>.Sort.Ascending(p => p.BucketRevision))
+				.ToListAsync();
+
+			foreach (var commit in commits)
+				await DispatchCommitAsync(commit);
 		}
 
 		public Task RollbackAsync(long bucketRevision)
@@ -64,7 +74,7 @@ namespace StreamLedger.MongoDb
 
 			var commits = await Collection
 				.Find(filter)
-				.Sort(Builders<CommitData>.Sort.Descending(p => p.BucketRevision))
+				.Sort(Builders<CommitData>.Sort.Ascending(p => p.BucketRevision))
 				.ToListAsync();
 
 			return commits.SelectMany(c => c.Events);
@@ -74,7 +84,6 @@ namespace StreamLedger.MongoDb
 		{
 			return await Collection
 				.Find(p => p.Dispatched == false)
-				.Sort(Builders<CommitData>.Sort.Descending(p => p.BucketRevision))
 				.AnyAsync();
 		}
 
@@ -143,11 +152,20 @@ namespace StreamLedger.MongoDb
 			return result;
 		}
 
+		private async Task AutoEnsureIndexesAsync()
+		{
+			if (_indexesEnsured || !_ledger.AutoEnsureIndexes)
+				return;
+
+			await _ledger.EnsureBucketAsync(BucketName);
+			_indexesEnsured = true;
+		}
+
 		private async Task DispatchCommitAsync(CommitData commit)
 		{
+			// TODO Eval if dispath on dispatcher in parallel
 			foreach (var dispatcher in _ledger.GetDispatchers())
 			{
-				// TODO Eval if dispath in parallel
 				foreach (var e in commit.Events)
 					await dispatcher.DispatchAsync(e);
 			}

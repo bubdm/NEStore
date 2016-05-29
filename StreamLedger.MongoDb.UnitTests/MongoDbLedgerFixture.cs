@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Configuration;
 using System.Linq;
+using Moq;
 using Xunit;
 
 namespace StreamLedger.MongoDb.UnitTests
@@ -9,11 +10,16 @@ namespace StreamLedger.MongoDb.UnitTests
 	{
 		public string BucketName { get; }
 		public MongoDbLedger Target { get; }
+		public MongoDbBucket Bucket { get; }
+		public Mock<IEventDispatcher> Dispatcher { get; }
 
 		public MongoDbLedgerFixture()
 		{
 			BucketName = RandomString(10);
 			Target = CreateTarget();
+			Dispatcher = new Mock<IEventDispatcher>();
+			Target.RegisterDispatchers(Dispatcher.Object);
+			Bucket = Target.Bucket(BucketName) as MongoDbBucket;
 		}
 
 		public void Dispose()
@@ -33,13 +39,12 @@ namespace StreamLedger.MongoDb.UnitTests
 			return new MongoDbLedger(cns);
 		}
 
-		public static string RandomString(int length)
+		private static string RandomString(int length)
 		{
 			const string chars = "abcdefghijklmnopqrstuvwxyz";
 			var random = new Random();
 			return new string(Enumerable.Repeat(chars, length)
 				.Select(s => s[random.Next(s.Length)]).ToArray());
 		}
-
 	}
 }

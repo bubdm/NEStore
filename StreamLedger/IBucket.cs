@@ -8,7 +8,7 @@ namespace StreamLedger
 	{
 		string BucketName { get; }
 
-		Task WriteAsync(Guid streamId, int expectedStreamRevision, IEnumerable<object> events);
+		Task<WriteResult> WriteAsync(Guid streamId, int expectedStreamRevision, IEnumerable<object> events);
 
 		Task DispatchUndispatchedAsync();
 
