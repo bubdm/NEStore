@@ -52,6 +52,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="MongoDbSerialization.cs" />
     <Compile Include="MongoDbBucket.cs" />
     <Compile Include="MongoDbLedger.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

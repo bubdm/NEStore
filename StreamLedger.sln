@@ -9,6 +9,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StreamLedger.MongoDb", "Str
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StreamLedger.MongoDb.Tests", "StreamLedger.MongoDb.Tests\StreamLedger.MongoDb.Tests.csproj", "{A1C4BBB6-996A-46C9-B301-FE4BF0249A76}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SampleMovieCatalog", "SampleMovieCatalog\SampleMovieCatalog.csproj", "{D441C9B1-D758-49B0-9F01-AC669841A7E7}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StreamLedger.Aggregates", "StreamLedger.Aggregates\StreamLedger.Aggregates.csproj", "{911A8DDE-FD02-4D70-BEAB-86B9E8663BD3}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -27,6 +31,14 @@ Global
 		{A1C4BBB6-996A-46C9-B301-FE4BF0249A76}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A1C4BBB6-996A-46C9-B301-FE4BF0249A76}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A1C4BBB6-996A-46C9-B301-FE4BF0249A76}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D441C9B1-D758-49B0-9F01-AC669841A7E7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D441C9B1-D758-49B0-9F01-AC669841A7E7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D441C9B1-D758-49B0-9F01-AC669841A7E7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D441C9B1-D758-49B0-9F01-AC669841A7E7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{911A8DDE-FD02-4D70-BEAB-86B9E8663BD3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{911A8DDE-FD02-4D70-BEAB-86B9E8663BD3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{911A8DDE-FD02-4D70-BEAB-86B9E8663BD3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{911A8DDE-FD02-4D70-BEAB-86B9E8663BD3}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
