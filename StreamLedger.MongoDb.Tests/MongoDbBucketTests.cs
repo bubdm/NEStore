@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 using Moq;
 using Xunit;
 
-namespace StreamLedger.MongoDb.UnitTests
+namespace StreamLedger.MongoDb.Tests
 {
 	public class MongoDbBucketTests
 	{
@@ -36,7 +36,7 @@ namespace StreamLedger.MongoDb.UnitTests
 				var storedEvents = await fixture.Bucket.GetEventsAsync(streamId);
 				Assert.Equal("v1", ((dynamic) storedEvents.Single()).n1);
 
-				var commits = await fixture.Bucket.GetCommitsAsync(0, 1);
+				var commits = await fixture.Bucket.GetCommitsAsync(toBucketRevision: 1);
 				Assert.Equal(1, commits.Count());
 
 				var ids = await fixture.Bucket.GetStreamIdsAsync();
@@ -87,18 +87,56 @@ namespace StreamLedger.MongoDb.UnitTests
 				Assert.Equal(streamId, (await fixture.Bucket.GetStreamIdsAsync()).Single());
 				Assert.Equal(3, (await fixture.Bucket.GetStreamRevisionAsync(streamId)));
 
-				var storedEvents = await fixture.Bucket.GetEventsAsync(streamId);
+				var storedEvents = (await fixture.Bucket.GetEventsAsync(streamId)).ToList();
 				Assert.Equal("v1", ((dynamic) storedEvents.ElementAt(0)).n1);
 				Assert.Equal("v2", ((dynamic) storedEvents.ElementAt(1)).n1);
 				Assert.Equal("v3", ((dynamic) storedEvents.ElementAt(2)).n1);
 
-				var commits = await fixture.Bucket.GetCommitsAsync(0, 1);
+				var commits = await fixture.Bucket.GetCommitsAsync(toBucketRevision: 1);
 				Assert.Equal(1, commits.Count());
 
 				var ids = await fixture.Bucket.GetStreamIdsAsync();
 				Assert.Equal(streamId, ids.Single());
 
 				await result.DispatchTask;
+
+				Assert.Equal(false, await fixture.Bucket.HasUndispatchedCommitsAsync());
+			}
+		}
+
+		[Fact]
+		public async Task Write_multiple_commits_with_multiple_events()
+		{
+			using (var fixture = new MongoDbLedgerFixture())
+			{
+				var streamId = Guid.NewGuid();
+
+				var result1 = await fixture.Bucket.WriteAsync(streamId, 0, new[] { new { n1 = "v1" }, new { n1 = "v2" }, new { n1 = "v3" } });
+				var result2 = await fixture.Bucket.WriteAsync(streamId, 3, new[] { new { n1 = "v4" } });
+				var result3 = await fixture.Bucket.WriteAsync(streamId, 4, new[] { new { n1 = "v5" }, new { n1 = "v6" }, new { n1 = "v7" } });
+
+				Assert.Equal(3, (await fixture.Bucket.GetBucketRevisionAsync()));
+				Assert.Equal(streamId, (await fixture.Bucket.GetStreamIdsAsync()).Single());
+				Assert.Equal(7, (await fixture.Bucket.GetStreamRevisionAsync(streamId)));
+
+				var storedEvents = (await fixture.Bucket.GetEventsAsync(streamId)).ToList();
+				Assert.Equal("v1", ((dynamic)storedEvents.ElementAt(0)).n1);
+				Assert.Equal("v2", ((dynamic)storedEvents.ElementAt(1)).n1);
+				Assert.Equal("v3", ((dynamic)storedEvents.ElementAt(2)).n1);
+				Assert.Equal("v4", ((dynamic)storedEvents.ElementAt(3)).n1);
+				Assert.Equal("v5", ((dynamic)storedEvents.ElementAt(4)).n1);
+				Assert.Equal("v6", ((dynamic)storedEvents.ElementAt(5)).n1);
+				Assert.Equal("v7", ((dynamic)storedEvents.ElementAt(6)).n1);
+
+				var commits = await fixture.Bucket.GetCommitsAsync(toBucketRevision: 1);
+				Assert.Equal(1, commits.Count());
+
+				var ids = await fixture.Bucket.GetStreamIdsAsync();
+				Assert.Equal(streamId, ids.Single());
+
+				await result1.DispatchTask;
+				await result2.DispatchTask;
+				await result3.DispatchTask;
 
 				Assert.Equal(false, await fixture.Bucket.HasUndispatchedCommitsAsync());
 			}
@@ -119,12 +157,12 @@ namespace StreamLedger.MongoDb.UnitTests
 				Assert.Equal(streamId, (await fixture.Bucket.GetStreamIdsAsync()).Single());
 				Assert.Equal(3, (await fixture.Bucket.GetStreamRevisionAsync(streamId)));
 
-				var storedEvents = await fixture.Bucket.GetEventsAsync(streamId);
+				var storedEvents = (await fixture.Bucket.GetEventsAsync(streamId)).ToList();
 				Assert.Equal("v1", ((dynamic) storedEvents.ElementAt(0)).n1);
 				Assert.Equal("v2", ((dynamic) storedEvents.ElementAt(1)).n1);
 				Assert.Equal("v3", ((dynamic) storedEvents.ElementAt(2)).n1);
 
-				var commits = await fixture.Bucket.GetCommitsAsync(0, 3);
+				var commits = await fixture.Bucket.GetCommitsAsync(toBucketRevision: 3);
 				Assert.Equal(3, commits.Count());
 
 				var ids = await fixture.Bucket.GetStreamIdsAsync();

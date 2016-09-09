@@ -2,9 +2,8 @@
 using System.Configuration;
 using System.Linq;
 using Moq;
-using Xunit;
 
-namespace StreamLedger.MongoDb.UnitTests
+namespace StreamLedger.MongoDb.Tests
 {
 	public class MongoDbLedgerFixture : IDisposable
 	{

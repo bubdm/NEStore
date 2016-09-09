@@ -64,23 +64,9 @@ namespace StreamLedger.MongoDb
 			throw new NotImplementedException();
 		}
 
-		public Task<IEnumerable<object>> GetEventsAsync(Guid streamId)
+		public async Task<IEnumerable<object>> GetEventsAsync(Guid? streamId = null, long? fromBucketRevision = null, long? toBucketRevision = null)
 		{
-			return GetEventsAsync(streamId, long.MinValue, long.MaxValue);
-		}
-
-		public async Task<IEnumerable<object>> GetEventsAsync(Guid streamId, long fromBucketRevision, long toBucketRevision)
-		{
-			var filter = Builders<CommitData>.Filter.Eq(p => p.StreamId, streamId);
-			if (fromBucketRevision != long.MinValue || fromBucketRevision != 0)
-				filter = filter & Builders<CommitData>.Filter.Gte(p => p.BucketRevision, fromBucketRevision);
-			if (toBucketRevision != long.MaxValue)
-				filter = filter & Builders<CommitData>.Filter.Lte(p => p.BucketRevision, toBucketRevision);
-
-			var commits = await Collection
-				.Find(filter)
-				.Sort(Builders<CommitData>.Sort.Ascending(p => p.BucketRevision))
-				.ToListAsync();
+			var commits = await GetCommitsAsync(streamId, fromBucketRevision, toBucketRevision);
 
 			return commits.SelectMany(c => c.Events);
 		}
@@ -92,17 +78,19 @@ namespace StreamLedger.MongoDb
 				.AnyAsync();
 		}
 
-		public async Task<IEnumerable<CommitData>> GetCommitsAsync(long fromBucketRevision, long toBucketRevision)
+		public async Task<IEnumerable<CommitData>> GetCommitsAsync(Guid? streamId = null, long? fromBucketRevision = null, long? toBucketRevision = null)
 		{
 			var filter = Builders<CommitData>.Filter.Empty;
-			if (fromBucketRevision != long.MinValue || fromBucketRevision != 0)
-				filter = filter & Builders<CommitData>.Filter.Gte(p => p.BucketRevision, fromBucketRevision);
-			if (toBucketRevision != long.MaxValue)
-				filter = filter & Builders<CommitData>.Filter.Lte(p => p.BucketRevision, toBucketRevision);
+			if (streamId != null)
+				filter = filter & Builders<CommitData>.Filter.Eq(p => p.StreamId, streamId.Value);
+			if (fromBucketRevision != null && fromBucketRevision != long.MinValue)
+				filter = filter & Builders<CommitData>.Filter.Gte(p => p.BucketRevision, fromBucketRevision.Value);
+			if (toBucketRevision != null && toBucketRevision != long.MaxValue)
+				filter = filter & Builders<CommitData>.Filter.Lte(p => p.BucketRevision, toBucketRevision.Value);
 
 			var commits = await Collection
 				.Find(filter)
-				.Sort(Builders<CommitData>.Sort.Descending(p => p.BucketRevision))
+				.Sort(Builders<CommitData>.Sort.Ascending(p => p.BucketRevision))
 				.ToListAsync();
 
 			return commits;
@@ -118,16 +106,11 @@ namespace StreamLedger.MongoDb
 			return result?.BucketRevision ?? 0;
 		}
 
-		public Task<int> GetStreamRevisionAsync(Guid streamId)
-		{
-			return GetStreamRevisionAsync(streamId, long.MaxValue);
-		}
-
-		public async Task<int> GetStreamRevisionAsync(Guid streamId, long atBucketRevision)
+		public async Task<int> GetStreamRevisionAsync(Guid streamId, long? atBucketRevision = null)
 		{
 			var filter = Builders<CommitData>.Filter.Eq(p => p.StreamId, streamId);
-			if (atBucketRevision != long.MaxValue)
-				filter = filter & Builders<CommitData>.Filter.Lte(p => p.BucketRevision, atBucketRevision);
+			if (atBucketRevision != null && atBucketRevision != long.MaxValue)
+				filter = filter & Builders<CommitData>.Filter.Lte(p => p.BucketRevision, atBucketRevision.Value);
 
 			var result = await Collection
 				.Find(filter)
@@ -137,18 +120,13 @@ namespace StreamLedger.MongoDb
 			return result?.StreamRevisionEnd ?? 0;
 		}
 
-		public Task<IEnumerable<Guid>> GetStreamIdsAsync()
-		{
-			return GetStreamIdsAsync(long.MinValue, long.MaxValue);
-		}
-
-		public async Task<IEnumerable<Guid>> GetStreamIdsAsync(long fromBucketRevision, long toBucketRevision)
+		public async Task<IEnumerable<Guid>> GetStreamIdsAsync(long? fromBucketRevision = null, long? toBucketRevision = null)
 		{
 			var filter = Builders<CommitData>.Filter.Empty;
-			if (fromBucketRevision != long.MinValue && fromBucketRevision != 0)
-				filter = filter & Builders<CommitData>.Filter.Gte(p => p.BucketRevision, fromBucketRevision);
-			if (toBucketRevision != long.MaxValue)
-				filter = filter & Builders<CommitData>.Filter.Lte(p => p.BucketRevision, toBucketRevision);
+			if (fromBucketRevision != null && fromBucketRevision != long.MinValue)
+				filter = filter & Builders<CommitData>.Filter.Gte(p => p.BucketRevision, fromBucketRevision.Value);
+			if (toBucketRevision != null && toBucketRevision != long.MaxValue)
+				filter = filter & Builders<CommitData>.Filter.Lte(p => p.BucketRevision, toBucketRevision.Value);
 
 			var cursor = await Collection
 				.DistinctAsync(p => p.StreamId, filter);

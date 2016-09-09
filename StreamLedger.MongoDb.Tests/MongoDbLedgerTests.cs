@@ -3,7 +3,7 @@ using System.Threading.Tasks;
 using MongoDB.Driver;
 using Xunit;
 
-namespace StreamLedger.MongoDb.UnitTests
+namespace StreamLedger.MongoDb.Tests
 {
 	public class MongoDbLedgerTests
 	{
