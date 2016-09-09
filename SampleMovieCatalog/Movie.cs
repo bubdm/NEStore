@@ -39,14 +39,12 @@ namespace SampleMovieCatalog
 			set { ApplyChange(new ExtendedFieldsSet(ObjectId, value)); }
 		}
 
-		// ReSharper disable once UnusedMember.Local
+		// ReSharper disable UnusedMember.Local
 		private void On(Created @event) => ObjectId = @event.ObjectId;
-		// ReSharper disable once UnusedMember.Local
 		private void On(TitleSet @event) => _title = @event.Title;
-		// ReSharper disable once UnusedMember.Local
 		private void On(GenreSet @event) => _genre = @event.Genre;
-		// ReSharper disable once UnusedMember.Local
 		private void On(ExtendedFieldsSet @event) => _extendedFields = @event.Fields;
+		// ReSharper restore UnusedMember.Local
 
 		public class Created : IEvent
 		{

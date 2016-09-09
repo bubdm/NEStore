@@ -44,6 +44,8 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="InMemoryTotalMoviesProjection.cs" />
+    <Compile Include="InMemoryMoviesProjection.cs" />
     <Compile Include="Movie.cs" />
     <Compile Include="ObjectDumper.cs" />
     <Compile Include="Program.cs" />

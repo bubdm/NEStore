@@ -12,23 +12,35 @@ namespace SampleMovieCatalog
 	public static class Program
 	{
 		private static AggregateStore _store;
+		private static MongoDbLedger _ledger;
+		private static InMemoryMoviesProjection _moviesProjection;
+		private static InMemoryTotalMoviesProjection _totalMoviesProjection;
 
 		public static void Main()
 		{
 			RegisterAllEvents();
-			var ledger = new MongoDbLedger(ConfigurationManager.ConnectionStrings["mongoTest"].ConnectionString);
-			_store = new AggregateStore(ledger.Bucket("movies"));
+			_ledger = new MongoDbLedger(ConfigurationManager.ConnectionStrings["mongoTest"].ConnectionString);
+			_ledger.RegisterDispatchers(
+				_moviesProjection = new InMemoryMoviesProjection(),
+				_totalMoviesProjection = new InMemoryTotalMoviesProjection());
+			_store = new AggregateStore(_ledger.Bucket("movies"));
+
+			RebuildAsync().Wait();
 
 			Console.WriteLine("Movie catalog sample!");
 
 			while (true)
 			{
+				Console.WriteLine("");
 				Console.WriteLine("Actions:");
-				Console.WriteLine("-i: Insert a movie");
-				Console.WriteLine("-u: Update movie");
-				Console.WriteLine("-l: List events");
-				Console.WriteLine("-m: Load movie");
-				Console.WriteLine("-e: Exit");
+				Console.WriteLine(" -i: Insert a movie");
+				Console.WriteLine(" -u: Update movie");
+				Console.WriteLine(" -l: List events");
+				Console.WriteLine(" -p: Print movies");
+				Console.WriteLine(" -t: Total movies");
+				Console.WriteLine(" -m: Load movie aggregate");
+				Console.WriteLine(" -r: Rollback");
+				Console.WriteLine(" -e: Exit");
 				Console.Write("Choose an action: ");
 				switch (Console.ReadLine())
 				{
@@ -44,10 +56,49 @@ namespace SampleMovieCatalog
 					case "m":
 						LoadMovieAsync().Wait();
 						break;
+					case "r":
+						RollbackAsync().Wait();
+						break;
+					case "p":
+						PrintMovies();
+						break;
+					case "t":
+						TotalMovies();
+						break;
 					case "e":
 						return;
 				}
 			}
+		}
+
+		private static void TotalMovies()
+		{
+			Console.WriteLine($"Total movies: {_totalMoviesProjection.TotalMovies}");
+		}
+
+		private static void PrintMovies()
+		{
+			foreach (var m in _moviesProjection.Movies)
+				ObjectDumper.Write(m);
+		}
+
+		private static async Task RebuildAsync()
+		{
+			foreach (ProjectionBase projection in _ledger.GetDispatchers())
+				await projection.ClearAsync();
+
+			foreach (var e in await _store.GetEventsAsync())
+				foreach (var projection in _ledger.GetDispatchers())
+					await projection.DispatchAsync(e);
+		}
+
+		private static async Task RollbackAsync()
+		{
+			Console.Write("BucketRevision: ");
+			var revision = int.Parse(Console.ReadLine());
+
+			await _store.RollbackAsync(revision);
+			await RebuildAsync();
 		}
 
 		private static async Task LoadMovieAsync()

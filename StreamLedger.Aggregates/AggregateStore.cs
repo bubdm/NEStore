@@ -40,5 +40,10 @@ namespace StreamLedger.Aggregates
 		{
 			return _bucket.GetEventsAsync();
 		}
+
+		public Task RollbackAsync(int bucketRevision)
+		{
+			return _bucket.RollbackAsync(bucketRevision);
+		}
 	}
 }

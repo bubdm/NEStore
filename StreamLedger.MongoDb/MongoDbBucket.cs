@@ -13,6 +13,8 @@ namespace StreamLedger.MongoDb
 		public IMongoCollection<CommitData> Collection { get; }
 		public string BucketName { get; }
 
+		public bool CheckStreamRevisionBeforeWriting { get; set; } = true;
+
 		public MongoDbBucket(MongoDbLedger ledger, string bucketName, IMongoCollection<CommitData> collection)
 		{
 			_ledger = ledger;
@@ -24,6 +26,17 @@ namespace StreamLedger.MongoDb
 		{
 			if (expectedStreamRevision < 0)
 				throw new ArgumentOutOfRangeException(nameof(expectedStreamRevision));
+
+			if (CheckStreamRevisionBeforeWriting)
+			{
+				// Note: this check doesn't ensure that in case of real concurrency no one can insert the same commit
+				//  the real check is done via a mongo index "StreamRevision"
+				var actualRevision = await GetStreamRevisionAsync(streamId);
+				if (actualRevision > expectedStreamRevision)
+					throw new ConcurrencyWriteException("Someone else is working on the same bucket or stream");
+				if (actualRevision < expectedStreamRevision) // Ensure to write commits sequentially
+					throw new ArgumentOutOfRangeException(nameof(expectedStreamRevision));
+			}
 
 			await AutoEnsureIndexesAsync();
 
@@ -40,7 +53,7 @@ namespace StreamLedger.MongoDb
 			catch (MongoWriteException ex)
 			{
 				if (ex.WriteError != null && ex.WriteError.Code == 11000)
-					throw new ConcurrencyWriteException("Someone else is working on the same bucket", ex);
+					throw new ConcurrencyWriteException("Someone else is working on the same bucket or stream", ex);
 			}
 
 			var dispatchTask = DispatchCommitAsync(commit);
@@ -61,7 +74,8 @@ namespace StreamLedger.MongoDb
 
 		public Task RollbackAsync(long bucketRevision)
 		{
-			throw new NotImplementedException();
+			return Collection
+				.DeleteManyAsync(p => p.BucketRevision > bucketRevision);
 		}
 
 		public async Task<IEnumerable<object>> GetEventsAsync(Guid? streamId = null, long? fromBucketRevision = null, long? toBucketRevision = null)

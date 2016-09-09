@@ -43,6 +43,7 @@
     <Compile Include="Aggregate.cs" />
     <Compile Include="AggregateStore.cs" />
     <Compile Include="IEvent.cs" />
+    <Compile Include="ProjectionBase.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
