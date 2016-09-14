@@ -7,8 +7,8 @@
     <ProjectGuid>{330F142E-5227-49EE-9DEE-E37FD638172D}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>StreamLedger.MongoDb</RootNamespace>
-    <AssemblyName>StreamLedger.MongoDb</AssemblyName>
+    <RootNamespace>NEStore.MongoDb</RootNamespace>
+    <AssemblyName>NEStore.MongoDb</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
   </PropertyGroup>

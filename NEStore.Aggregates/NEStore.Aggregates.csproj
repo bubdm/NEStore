@@ -7,8 +7,8 @@
     <ProjectGuid>{911A8DDE-FD02-4D70-BEAB-86B9E8663BD3}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>StreamLedger.Aggregates</RootNamespace>
-    <AssemblyName>StreamLedger.Aggregates</AssemblyName>
+    <RootNamespace>NEStore.Aggregates</RootNamespace>
+    <AssemblyName>NEStore.Aggregates</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
   </PropertyGroup>

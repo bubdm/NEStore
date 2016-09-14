@@ -21,13 +21,13 @@ namespace NEStore.MongoDb.Tests
 		}
 
 		[Fact]
-		public async Task Write_an_event()
+		public async Task Write_an_event_and_get_it_back()
 		{
 			using (var fixture = new MongoDbEventStoreFixture())
 			{
 				var streamId = Guid.NewGuid();
 
-				var result = await fixture.Bucket.WriteAsync(streamId, 0, new[] {new {n1 = "v1"}});
+				await fixture.Bucket.WriteAsync(streamId, 0, new[] {new {n1 = "v1"}});
 
 				Assert.Equal(1, (await fixture.Bucket.GetBucketRevisionAsync()));
 				Assert.Equal(streamId, (await fixture.Bucket.GetStreamIdsAsync()).Single());
@@ -38,11 +38,40 @@ namespace NEStore.MongoDb.Tests
 
 				var commits = await fixture.Bucket.GetCommitsAsync(toBucketRevision: 1);
 				Assert.Equal(1, commits.Count());
+			}
+		}
 
-				var ids = await fixture.Bucket.GetStreamIdsAsync();
-				Assert.Equal(streamId, ids.Single());
+		[Fact]
+		public async Task Write_an_event_and_check_for_dispatch()
+		{
+			using (var fixture = new MongoDbEventStoreFixture())
+			{
+				var streamId = Guid.NewGuid();
+
+				var @event = new { n1 = "v1" };
+
+				var result = await fixture.Bucket.WriteAsync(streamId, 0, new[] { @event });
 
 				await result.DispatchTask;
+
+				fixture.Dispatcher.Verify(p => p.DispatchAsync(@event), Times.Once());
+
+				Assert.Equal(false, await fixture.Bucket.HasUndispatchedCommitsAsync());
+			}
+		}
+
+		[Fact]
+		public async Task WriteAndDispatch_an_event_and_check_for_dispatch()
+		{
+			using (var fixture = new MongoDbEventStoreFixture())
+			{
+				var streamId = Guid.NewGuid();
+
+				var @event = new { n1 = "v1" };
+
+				await fixture.Bucket.WriteAndDispatchAsync(streamId, 0, new[] { @event });
+
+				fixture.Dispatcher.Verify(p => p.DispatchAsync(@event), Times.Once());
 
 				Assert.Equal(false, await fixture.Bucket.HasUndispatchedCommitsAsync());
 			}
@@ -66,7 +95,7 @@ namespace NEStore.MongoDb.Tests
 			{
 				var streamId = Guid.NewGuid();
 
-				await fixture.Bucket.WriteAsync(streamId, 0, new[] {new {n1 = "v1"}});
+				await fixture.Bucket.WriteAndDispatchAsync(streamId, 0, new[] {new {n1 = "v1"}});
 
 				await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => fixture.Bucket.WriteAsync(streamId, 2, new[] { new { n1 = "v2" } }));
 			}
@@ -79,9 +108,7 @@ namespace NEStore.MongoDb.Tests
 			{
 				var streamId = Guid.NewGuid();
 
-				var result = await fixture.Bucket.WriteAsync(streamId, 0, new[] { new { n1 = "v1" } });
-
-				await result.DispatchTask;
+				await fixture.Bucket.WriteAndDispatchAsync(streamId, 0, new[] { new { n1 = "v1" } });
 
 				await Assert.ThrowsAsync<ConcurrencyWriteException>(() => fixture.Bucket.WriteAsync(streamId, 0, new[] { new { n1 = "v2" } }));
 			}
@@ -96,9 +123,7 @@ namespace NEStore.MongoDb.Tests
 
 				fixture.Bucket.CheckStreamRevisionBeforeWriting = false;
 
-				var result = await fixture.Bucket.WriteAsync(streamId, 0, new[] { new { n1 = "v1" } });
-
-				await result.DispatchTask;
+				await fixture.Bucket.WriteAndDispatchAsync(streamId, 0, new[] { new { n1 = "v1" } });
 
 				await Assert.ThrowsAsync<ConcurrencyWriteException>(() => fixture.Bucket.WriteAsync(streamId, 0, new[] { new { n1 = "v2" } }));
 			}
@@ -111,7 +136,7 @@ namespace NEStore.MongoDb.Tests
 			{
 				var streamId = Guid.NewGuid();
 
-				var result = await fixture.Bucket.WriteAsync(streamId, 0, new[] {new {n1 = "v1"}, new {n1 = "v2"}, new {n1 = "v3"}});
+				var result = await fixture.Bucket.WriteAndDispatchAsync(streamId, 0, new[] {new {n1 = "v1"}, new {n1 = "v2"}, new {n1 = "v3"}});
 
 				Assert.Equal(1, (await fixture.Bucket.GetBucketRevisionAsync()));
 				Assert.Equal(streamId, (await fixture.Bucket.GetStreamIdsAsync()).Single());
@@ -141,9 +166,9 @@ namespace NEStore.MongoDb.Tests
 			{
 				var streamId = Guid.NewGuid();
 
-				var result1 = await fixture.Bucket.WriteAsync(streamId, 0, new[] { new { n1 = "v1" }, new { n1 = "v2" }, new { n1 = "v3" } });
-				var result2 = await fixture.Bucket.WriteAsync(streamId, 3, new[] { new { n1 = "v4" } });
-				var result3 = await fixture.Bucket.WriteAsync(streamId, 4, new[] { new { n1 = "v5" }, new { n1 = "v6" }, new { n1 = "v7" } });
+				await fixture.Bucket.WriteAndDispatchAsync(streamId, 0, new[] { new { n1 = "v1" }, new { n1 = "v2" }, new { n1 = "v3" } });
+				await fixture.Bucket.WriteAndDispatchAsync(streamId, 3, new[] { new { n1 = "v4" } });
+				await fixture.Bucket.WriteAndDispatchAsync(streamId, 4, new[] { new { n1 = "v5" }, new { n1 = "v6" }, new { n1 = "v7" } });
 
 				Assert.Equal(3, (await fixture.Bucket.GetBucketRevisionAsync()));
 				Assert.Equal(streamId, (await fixture.Bucket.GetStreamIdsAsync()).Single());
@@ -164,10 +189,6 @@ namespace NEStore.MongoDb.Tests
 				var ids = await fixture.Bucket.GetStreamIdsAsync();
 				Assert.Equal(streamId, ids.Single());
 
-				await result1.DispatchTask;
-				await result2.DispatchTask;
-				await result3.DispatchTask;
-
 				Assert.Equal(false, await fixture.Bucket.HasUndispatchedCommitsAsync());
 			}
 		}
@@ -179,9 +200,9 @@ namespace NEStore.MongoDb.Tests
 			{
 				var streamId = Guid.NewGuid();
 
-				var writeResult1 = await fixture.Bucket.WriteAsync(streamId, 0, new[] {new {n1 = "v1"}});
-				var writeResult2 = await fixture.Bucket.WriteAsync(streamId, 1, new[] {new {n1 = "v2"}});
-				var writeResult3 = await fixture.Bucket.WriteAsync(streamId, 2, new[] {new {n1 = "v3"}});
+				await fixture.Bucket.WriteAndDispatchAsync(streamId, 0, new[] {new {n1 = "v1"}});
+				await fixture.Bucket.WriteAndDispatchAsync(streamId, 1, new[] {new {n1 = "v2"}});
+				await fixture.Bucket.WriteAndDispatchAsync(streamId, 2, new[] {new {n1 = "v3"}});
 
 				Assert.Equal(3, (await fixture.Bucket.GetBucketRevisionAsync()));
 				Assert.Equal(streamId, (await fixture.Bucket.GetStreamIdsAsync()).Single());
@@ -198,8 +219,6 @@ namespace NEStore.MongoDb.Tests
 				var ids = await fixture.Bucket.GetStreamIdsAsync();
 				Assert.Equal(streamId, ids.Single());
 
-				await Task.WhenAll(writeResult1.DispatchTask, writeResult2.DispatchTask, writeResult3.DispatchTask);
-
 				Assert.Equal(false, await fixture.Bucket.HasUndispatchedCommitsAsync());
 			}
 		}
@@ -212,9 +231,9 @@ namespace NEStore.MongoDb.Tests
 				var streamId1 = Guid.NewGuid();
 				var streamId2 = Guid.NewGuid();
 
-				await fixture.Bucket.WriteAsync(streamId1, 0, new[] { new { n1 = "v1" } });
-				await fixture.Bucket.WriteAsync(streamId2, 0, new[] { new { n1 = "v1" } });
-				await fixture.Bucket.WriteAsync(streamId1, 1, new[] { new { n1 = "v2" } });
+				await fixture.Bucket.WriteAndDispatchAsync(streamId1, 0, new[] { new { n1 = "v1" } });
+				await fixture.Bucket.WriteAndDispatchAsync(streamId2, 0, new[] { new { n1 = "v1" } });
+				await fixture.Bucket.WriteAndDispatchAsync(streamId1, 1, new[] { new { n1 = "v2" } });
 
 				Assert.Equal(3, (await fixture.Bucket.GetBucketRevisionAsync()));
 				var streams = (await fixture.Bucket.GetStreamIdsAsync())
@@ -244,8 +263,8 @@ namespace NEStore.MongoDb.Tests
 			{
 				var streamId = Guid.NewGuid();
 
-				await fixture.Bucket.WriteAsync(streamId, 0, new[] { new { n1 = "v1" } });
-				await fixture.Bucket.WriteAsync(streamId, 1, new[] { new { n1 = "v2" } });
+				await fixture.Bucket.WriteAndDispatchAsync(streamId, 0, new[] { new { n1 = "v1" } });
+				await fixture.Bucket.WriteAndDispatchAsync(streamId, 1, new[] { new { n1 = "v2" } });
 
 				Assert.Equal(2, (await fixture.Bucket.GetBucketRevisionAsync()));
 
@@ -266,12 +285,12 @@ namespace NEStore.MongoDb.Tests
 			{
 				var streamId = Guid.NewGuid();
 
-				await fixture.Bucket.WriteAsync(streamId, 0, new[] { new { n1 = "v1" } });
-				await fixture.Bucket.WriteAsync(streamId, 1, new[] { new { n1 = "v2" } });
+				await fixture.Bucket.WriteAndDispatchAsync(streamId, 0, new[] { new { n1 = "v1" } });
+				await fixture.Bucket.WriteAndDispatchAsync(streamId, 1, new[] { new { n1 = "v2" } });
 
 				await fixture.Bucket.RollbackAsync(1);
 
-				await fixture.Bucket.WriteAsync(streamId, 1, new[] { new { n1 = "v3" } });
+				await fixture.Bucket.WriteAndDispatchAsync(streamId, 1, new[] { new { n1 = "v3" } });
 
 				var commits = (await fixture.Bucket.GetCommitsAsync(streamId)).ToList();
 				Assert.Equal(2, commits.Count);
@@ -280,25 +299,6 @@ namespace NEStore.MongoDb.Tests
 
 				Assert.Equal("v1", ((dynamic)commits.ElementAt(0).Events.First()).n1);
 				Assert.Equal("v3", ((dynamic)commits.ElementAt(1).Events.First()).n1);
-			}
-		}
-
-		[Fact]
-		public async Task Events_are_dispatched()
-		{
-			using (var fixture = new MongoDbEventStoreFixture())
-			{
-				var streamId = Guid.NewGuid();
-
-				var @event = new {n1 = "v1"};
-
-				var result = await fixture.Bucket.WriteAsync(streamId, 0, new[] {@event});
-
-				fixture.Dispatcher.Verify(p => p.DispatchAsync(@event), Times.Once());
-
-				await result.DispatchTask;
-
-				Assert.Equal(false, await fixture.Bucket.HasUndispatchedCommitsAsync());
 			}
 		}
 

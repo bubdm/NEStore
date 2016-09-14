@@ -48,7 +48,7 @@ namespace NEStore.MongoDb
 
 			try
 			{
-				await Collection.InsertOneAsync(commit);
+				await Collection.InsertOneAsync(commit); // TODO Eval WriteConcern more strict
 			}
 			catch (MongoWriteException ex)
 			{
@@ -60,7 +60,7 @@ namespace NEStore.MongoDb
 
 			return new WriteResult(commit, dispatchTask);
 		}
-		
+
 		public async Task DispatchUndispatchedAsync()
 		{
 			var commits = await Collection
@@ -173,22 +173,21 @@ namespace NEStore.MongoDb
 			_indexesEnsured = true;
 		}
 
-	    private async Task DispatchCommitAsync(CommitData commit)
-	    {
-	        // TODO Eval if dispath on dispatcher in parallel
-	        foreach (var dispatcher in _eventStore.GetDispatchers())
-	        {
-	            foreach (var e in commit.Events)
-	                await dispatcher.DispatchAsync(e);
-	        }
+		private async Task DispatchCommitAsync(CommitData commit)
+		{
+			// TODO Eval if dispath on dispatchers in parallel
+			foreach (var dispatcher in _eventStore.GetDispatchers())
+			{
+				foreach (var e in commit.Events)
+					await dispatcher.DispatchAsync(e);
+			}
 
-	        await Collection.UpdateOneAsync(
-	            p => p.BucketRevision == commit.BucketRevision,
-	            Builders<CommitData>.Update.Set(p => p.Dispatched, true));
-	    }
+			await Collection.UpdateOneAsync(
+					p => p.BucketRevision == commit.BucketRevision,
+					Builders<CommitData>.Update.Set(p => p.Dispatched, true));
+		}
 
-
-	    private async Task CheckForUndispatchedAsync()
+		private async Task CheckForUndispatchedAsync()
 		{
 			if (!_eventStore.AutoCheckUndispatched)
 				return;

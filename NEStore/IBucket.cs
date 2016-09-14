@@ -26,4 +26,16 @@ namespace NEStore
 
 		Task<IEnumerable<Guid>> GetStreamIdsAsync(long? fromBucketRevision = null, long? toBucketRevision = null);
 	}
+
+	public static class BucketExtensions
+	{
+		public static async Task<WriteResult> WriteAndDispatchAsync(this IBucket bucket, Guid streamId, int expectedStreamRevision, IEnumerable<object> events)
+		{
+			var result = await bucket.WriteAsync(streamId, expectedStreamRevision, events);
+
+			await result.DispatchTask;
+
+			return result;
+		}
+	}
 }

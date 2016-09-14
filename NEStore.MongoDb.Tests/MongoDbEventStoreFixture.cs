@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Configuration;
 using System.Linq;
+using System.Threading.Tasks;
 using Moq;
 
 namespace NEStore.MongoDb.Tests
@@ -17,6 +18,10 @@ namespace NEStore.MongoDb.Tests
 			BucketName = RandomString(10);
 			Target = CreateTarget();
 			Dispatcher = new Mock<IEventDispatcher>();
+
+			Dispatcher.Setup(p => p.DispatchAsync(It.IsAny<object>()))
+				.Returns<object>((e) => Task.Delay(200));
+
 			Target.RegisterDispatchers(Dispatcher.Object);
 			Bucket = Target.Bucket(BucketName) as MongoDbBucket;
 		}
