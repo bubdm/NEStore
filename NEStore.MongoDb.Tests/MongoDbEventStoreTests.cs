@@ -34,5 +34,7 @@ namespace NEStore.MongoDb.Tests
 				Assert.Contains(collections, p => p["name"] == $"{fixture.BucketName}.commits");
 			}
 		}
+
+		// TODO Test delete bucket
 	}
 }

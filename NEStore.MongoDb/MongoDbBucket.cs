@@ -195,6 +195,8 @@ namespace NEStore.MongoDb
 			var found = await HasUndispatchedCommitsAsync();
 			if (found)
 				throw new UndispatchedEventsFoundException("Undispatched events found, cannot write new events");
+
+			// TODO Autodispatch undispatched commits (ensure correct exception: UndispatchedEventsFoundException)
 		}
 
 	}

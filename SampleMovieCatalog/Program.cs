@@ -16,6 +16,8 @@ namespace SampleMovieCatalog
 		private static InMemoryMoviesProjection _moviesProjection;
 		private static InMemoryTotalMoviesProjection _totalMoviesProjection;
 
+		// TODO Implement retry logic
+
 		public static void Main()
 		{
 			RegisterAllEvents();

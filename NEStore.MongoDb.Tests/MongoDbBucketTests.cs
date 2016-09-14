@@ -153,14 +153,42 @@ namespace NEStore.MongoDb.Tests
 				var ids = await fixture.Bucket.GetStreamIdsAsync();
 				Assert.Equal(streamId, ids.Single());
 
-				await result.DispatchTask;
+				Assert.Equal(false, await fixture.Bucket.HasUndispatchedCommitsAsync());
+			}
+		}
+
+		[Fact]
+		public async Task Write_multiple_commits()
+		{
+			using (var fixture = new MongoDbEventStoreFixture())
+			{
+				var streamId = Guid.NewGuid();
+
+				await fixture.Bucket.WriteAndDispatchAsync(streamId, 0, new[] { new { n1 = "v1" } });
+				await fixture.Bucket.WriteAndDispatchAsync(streamId, 1, new[] { new { n1 = "v2" } });
+				await fixture.Bucket.WriteAndDispatchAsync(streamId, 2, new[] { new { n1 = "v3" } });
+
+				Assert.Equal(3, (await fixture.Bucket.GetBucketRevisionAsync()));
+				Assert.Equal(streamId, (await fixture.Bucket.GetStreamIdsAsync()).Single());
+				Assert.Equal(3, (await fixture.Bucket.GetStreamRevisionAsync(streamId)));
+
+				var storedEvents = (await fixture.Bucket.GetEventsAsync(streamId)).ToList();
+				Assert.Equal("v1", ((dynamic)storedEvents.ElementAt(0)).n1);
+				Assert.Equal("v2", ((dynamic)storedEvents.ElementAt(1)).n1);
+				Assert.Equal("v3", ((dynamic)storedEvents.ElementAt(2)).n1);
+
+				var commits = await fixture.Bucket.GetCommitsAsync(toBucketRevision: 3);
+				Assert.Equal(3, commits.Count());
+
+				var ids = await fixture.Bucket.GetStreamIdsAsync();
+				Assert.Equal(streamId, ids.Single());
 
 				Assert.Equal(false, await fixture.Bucket.HasUndispatchedCommitsAsync());
 			}
 		}
 
 		[Fact]
-		public async Task Write_multiple_commits_with_multiple_events()
+		public async Task Write_multiple_commits_with_multiple_events_on_same_stream()
 		{
 			using (var fixture = new MongoDbEventStoreFixture())
 			{
@@ -185,36 +213,6 @@ namespace NEStore.MongoDb.Tests
 
 				var commits = await fixture.Bucket.GetCommitsAsync(toBucketRevision: 1);
 				Assert.Equal(1, commits.Count());
-
-				var ids = await fixture.Bucket.GetStreamIdsAsync();
-				Assert.Equal(streamId, ids.Single());
-
-				Assert.Equal(false, await fixture.Bucket.HasUndispatchedCommitsAsync());
-			}
-		}
-
-		[Fact]
-		public async Task Write_multiple_commits()
-		{
-			using (var fixture = new MongoDbEventStoreFixture())
-			{
-				var streamId = Guid.NewGuid();
-
-				await fixture.Bucket.WriteAndDispatchAsync(streamId, 0, new[] {new {n1 = "v1"}});
-				await fixture.Bucket.WriteAndDispatchAsync(streamId, 1, new[] {new {n1 = "v2"}});
-				await fixture.Bucket.WriteAndDispatchAsync(streamId, 2, new[] {new {n1 = "v3"}});
-
-				Assert.Equal(3, (await fixture.Bucket.GetBucketRevisionAsync()));
-				Assert.Equal(streamId, (await fixture.Bucket.GetStreamIdsAsync()).Single());
-				Assert.Equal(3, (await fixture.Bucket.GetStreamRevisionAsync(streamId)));
-
-				var storedEvents = (await fixture.Bucket.GetEventsAsync(streamId)).ToList();
-				Assert.Equal("v1", ((dynamic) storedEvents.ElementAt(0)).n1);
-				Assert.Equal("v2", ((dynamic) storedEvents.ElementAt(1)).n1);
-				Assert.Equal("v3", ((dynamic) storedEvents.ElementAt(2)).n1);
-
-				var commits = await fixture.Bucket.GetCommitsAsync(toBucketRevision: 3);
-				Assert.Equal(3, commits.Count());
 
 				var ids = await fixture.Bucket.GetStreamIdsAsync();
 				Assert.Equal(streamId, ids.Single());
@@ -279,7 +277,7 @@ namespace NEStore.MongoDb.Tests
 		}
 
 		[Fact]
-		public async Task When_rollback_then_next_commit_should_the_right_bucket_revistion()
+		public async Task When_rollback_then_next_commit_should_the_right_bucket_revision()
 		{
 			using (var fixture = new MongoDbEventStoreFixture())
 			{
@@ -330,6 +328,66 @@ namespace NEStore.MongoDb.Tests
 		}
 
 		[Fact]
+		public async Task Undispatch_events_block_write_on_same_bucket()
+		{
+			using (var fixture = new MongoDbEventStoreFixture())
+			{
+				var streamId = Guid.NewGuid();
+				var @event = new { n1 = "v1" };
+				fixture.Dispatcher.Setup(p => p.DispatchAsync(It.IsAny<object>()))
+					.Throws(new MyException("Some dispatch exception"));
+				var result = await fixture.Bucket.WriteAsync(streamId, 0, new[] { @event });
+
+				try
+				{
+					await result.DispatchTask;
+				}
+				catch (MyException)
+				{ }
+
+				Assert.Equal(true, await fixture.Bucket.HasUndispatchedCommitsAsync());
+
+				var streamId2 = Guid.NewGuid();
+				var @event2 = new { n1 = "v1" };
+
+				await Assert.ThrowsAsync<UndispatchedEventsFoundException>(() => fixture.Bucket.WriteAsync(streamId2, 0, new[] { @event2 }));
+			}
+		}
+
+		[Fact]
+		public async Task Undispatch_events_doesnt_block_write_on_other_buckets()
+		{
+			using (var fixture = new MongoDbEventStoreFixture())
+			{
+				var streamId = Guid.NewGuid();
+				var @event = new { n1 = "v1" };
+				fixture.Dispatcher.Setup(p => p.DispatchAsync(It.IsAny<object>()))
+					.Throws(new MyException("Some dispatch exception"));
+				var result = await fixture.Bucket.WriteAsync(streamId, 0, new[] { @event });
+
+				try
+				{
+					await result.DispatchTask;
+				}
+				catch (MyException)
+				{ }
+
+				Assert.Equal(true, await fixture.Bucket.HasUndispatchedCommitsAsync());
+
+				using (var fixtureBucket2 = new MongoDbEventStoreFixture())
+				{
+					var streamId2 = Guid.NewGuid();
+					var @event2 = new { n1 = "v1" };
+
+					await fixtureBucket2.Bucket.WriteAndDispatchAsync(streamId2, 0, new[] { @event2 });
+
+					Assert.Equal(false, await fixtureBucket2.Bucket.HasUndispatchedCommitsAsync());
+				}
+			}
+		}
+
+
+		[Fact]
 		public async Task Can_redispatch_undispatched_events()
 		{
 			using (var fixture = new MongoDbEventStoreFixture())
@@ -350,8 +408,10 @@ namespace NEStore.MongoDb.Tests
 				{ }
 				Assert.Equal(true, await fixture.Bucket.HasUndispatchedCommitsAsync());
 
-				// Redispatch events
+				// Reset mock
 				fixture.Dispatcher.Reset();
+
+				// Redispatch events
 				await fixture.Bucket.DispatchUndispatchedAsync();
 				fixture.Dispatcher.Verify(p => p.DispatchAsync(It.IsAny<object>()), Times.Once());
 				Assert.Equal(false, await fixture.Bucket.HasUndispatchedCommitsAsync());
@@ -379,10 +439,15 @@ namespace NEStore.MongoDb.Tests
 				{ }
 				Assert.Equal(true, await fixture.Bucket.HasUndispatchedCommitsAsync());
 
-
 				await Assert.ThrowsAsync<UndispatchedEventsFoundException>(() => fixture.Bucket.WriteAsync(streamId, 1, new[] { @event }));
 			}
 		}
+
+		// TODO Tests:
+		// GetEvents without streamId (ensure correct order)
+		// GetEvents with pagination (with many events)
+
+
 		[Serializable]
 		private class MyException : Exception
 		{
