@@ -97,7 +97,9 @@ namespace NEStore.MongoDb
 			var filter = Builders<CommitData>.Filter.Empty;
 			if (streamId != null)
 				filter = filter & Builders<CommitData>.Filter.Eq(p => p.StreamId, streamId.Value);
-			if (fromBucketRevision != null && fromBucketRevision != long.MinValue)
+
+            // TODO check fromBucketRevision > 0 & toBucketRevision < long.MaxValue ?
+            if (fromBucketRevision != null && fromBucketRevision != long.MinValue)
 				filter = filter & Builders<CommitData>.Filter.Gte(p => p.BucketRevision, fromBucketRevision.Value);
 			if (toBucketRevision != null && toBucketRevision != long.MaxValue)
 				filter = filter & Builders<CommitData>.Filter.Lte(p => p.BucketRevision, toBucketRevision.Value);

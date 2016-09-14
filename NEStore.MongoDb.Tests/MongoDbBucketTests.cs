@@ -442,13 +442,92 @@ namespace NEStore.MongoDb.Tests
 				await Assert.ThrowsAsync<UndispatchedEventsFoundException>(() => fixture.Bucket.WriteAsync(streamId, 1, new[] { @event }));
 			}
 		}
+        
+	    [Fact]
+	    public async Task Get_all_events_in_a_bucket()
+	    {
+            using (var fixture = new MongoDbEventStoreFixture())
+            {
+                var streamId = Guid.NewGuid();
+                var streamId2 = Guid.NewGuid();
+                var streamId3 = Guid.NewGuid();
 
-		// TODO Tests:
-		// GetEvents without streamId (ensure correct order)
-		// GetEvents with pagination (with many events)
+                await fixture.Bucket.WriteAndDispatchAsync(streamId, 0, new[] { new { n1 = "v1" }, new { n1 = "v2" }, new { n1 = "v3" } });
+				await fixture.Bucket.WriteAndDispatchAsync(streamId2, 0, new[] { new { n1 = "v4" } });
+				await fixture.Bucket.WriteAndDispatchAsync(streamId3, 0, new[] { new { n1 = "v5" }, new { n1 = "v6" }, new { n1 = "v7" } });
+                
+                Assert.Equal(false, await fixture.Bucket.HasUndispatchedCommitsAsync());
+
+                var allEvents = await fixture.Bucket.GetEventsAsync();
+
+                Assert.Equal(7, allEvents.Count());
+
+                Assert.Equal("v1", ((dynamic)allEvents.ElementAt(0)).n1);
+                Assert.Equal("v2", ((dynamic)allEvents.ElementAt(1)).n1);
+                Assert.Equal("v3", ((dynamic)allEvents.ElementAt(2)).n1);
+                Assert.Equal("v4", ((dynamic)allEvents.ElementAt(3)).n1);
+                Assert.Equal("v5", ((dynamic)allEvents.ElementAt(4)).n1);
+                Assert.Equal("v6", ((dynamic)allEvents.ElementAt(5)).n1);
+                Assert.Equal("v7", ((dynamic)allEvents.ElementAt(6)).n1);
+            }
+        }
+
+        
+        [Fact]
+        public async Task Get_events_with_pagination_from_bucket()
+        {
+            using (var fixture = new MongoDbEventStoreFixture())
+            {
+                for (var i = 1; i <= 20; i++)
+                {
+                    var streamId = Guid.NewGuid();
+                    await
+                        fixture.Bucket.WriteAndDispatchAsync(streamId, 0,
+                            new[] {new {n1 = $"v{i}"}, new {n1 = $"v{i}"}});
+                }
+
+                Assert.Equal(false, await fixture.Bucket.HasUndispatchedCommitsAsync());
+
+                var allEvents = await fixture.Bucket.GetEventsAsync();
+                Assert.Equal(40, allEvents.Count());
+
+                var pagedEvents = await fixture.Bucket.GetEventsAsync(fromBucketRevision: 10, toBucketRevision: 15);
+                Assert.Equal(12,pagedEvents.Count());
+
+                Assert.Equal("v10",((dynamic)pagedEvents.First()).n1);
+                Assert.Equal("v15", ((dynamic)pagedEvents.Last()).n1);
+            }
+        }
+
+        [Fact]
+        public async Task Get_events_with_pagination_from_bucket_with_index_greater_than_bucket_revision()
+        {
+            using (var fixture = new MongoDbEventStoreFixture())
+            {
+                for (var i = 1; i <= 20; i++)
+                {
+                    var streamId = Guid.NewGuid();
+                    await
+                        fixture.Bucket.WriteAndDispatchAsync(streamId, 0,
+                            new[] { new { n1 = $"v{i}" }, new { n1 = $"v{i}" } });
+                }
+
+                Assert.Equal(false, await fixture.Bucket.HasUndispatchedCommitsAsync());
+
+                var allEvents = await fixture.Bucket.GetEventsAsync();
+                Assert.Equal(40, allEvents.Count());
+
+                var pagedEvents = await fixture.Bucket.GetEventsAsync(fromBucketRevision: 10, toBucketRevision: 30);
+                Assert.Equal(22, pagedEvents.Count());
+
+                Assert.Equal("v10", ((dynamic)pagedEvents.First()).n1);
+                Assert.Equal("v20", ((dynamic)pagedEvents.Last()).n1);
+            }
+        }
 
 
-		[Serializable]
+
+        [Serializable]
 		private class MyException : Exception
 		{
 			//
