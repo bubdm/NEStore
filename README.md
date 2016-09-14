@@ -43,4 +43,3 @@ TODO
 - [NEventStore](http://neventstore.org/) : another very popular event store database for .NET from where we have taken many concepts and ideas
 - http://martinfowler.com/eaaDev/EventSourcing.html
 - https://msdn.microsoft.com/en-us/library/dn589792.aspx
-- 
