@@ -1,5 +1,5 @@
 ﻿using System.Threading.Tasks;
-using StreamLedger.Aggregates;
+using NEStore.Aggregates;
 
 namespace SampleMovieCatalog
 {

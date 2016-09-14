@@ -4,26 +4,26 @@ using System.Configuration;
 using System.Dynamic;
 using System.Linq;
 using System.Threading.Tasks;
-using StreamLedger.Aggregates;
-using StreamLedger.MongoDb;
+using NEStore.Aggregates;
+using NEStore.MongoDb;
 
 namespace SampleMovieCatalog
 {
 	public static class Program
 	{
 		private static AggregateStore _store;
-		private static MongoDbLedger _ledger;
+		private static MongoDbEventStore _eventStore;
 		private static InMemoryMoviesProjection _moviesProjection;
 		private static InMemoryTotalMoviesProjection _totalMoviesProjection;
 
 		public static void Main()
 		{
 			RegisterAllEvents();
-			_ledger = new MongoDbLedger(ConfigurationManager.ConnectionStrings["mongoTest"].ConnectionString);
-			_ledger.RegisterDispatchers(
+			_eventStore = new MongoDbEventStore(ConfigurationManager.ConnectionStrings["mongoTest"].ConnectionString);
+			_eventStore.RegisterDispatchers(
 				_moviesProjection = new InMemoryMoviesProjection(),
 				_totalMoviesProjection = new InMemoryTotalMoviesProjection());
-			_store = new AggregateStore(_ledger.Bucket("movies"));
+			_store = new AggregateStore(_eventStore.Bucket("movies"));
 
 			RebuildAsync().Wait();
 
@@ -84,11 +84,11 @@ namespace SampleMovieCatalog
 
 		private static async Task RebuildAsync()
 		{
-			foreach (ProjectionBase projection in _ledger.GetDispatchers())
+			foreach (ProjectionBase projection in _eventStore.GetDispatchers())
 				await projection.ClearAsync();
 
 			foreach (var e in await _store.GetEventsAsync())
-				foreach (var projection in _ledger.GetDispatchers())
+				foreach (var projection in _eventStore.GetDispatchers())
 					await projection.DispatchAsync(e);
 		}
 
@@ -137,12 +137,12 @@ namespace SampleMovieCatalog
 
 			Console.Write("Title: ");
 			var title = Console.ReadLine();
-			if (string.IsNullOrWhiteSpace(title))
+			if (movie.Title != title)
 				movie.Title = title;
 
 			Console.Write("Genre: ");
 			var genre = Console.ReadLine();
-			if (string.IsNullOrWhiteSpace(genre))
+			if (movie.Genre != genre)
 				movie.Genre = genre;
 
 			Console.Write("ExtendedFields: ");
