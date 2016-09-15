@@ -472,6 +472,45 @@ namespace NEStore.MongoDb.Tests
             }
         }
 
+	    [Fact]
+	    public async Task It_should_not_return_events_when_fromBucketRevision_is_lower_than_0()
+	    {
+            using (var fixture = new MongoDbEventStoreFixture())
+            {
+                var streamId = Guid.NewGuid();
+
+                await fixture.Bucket.WriteAndDispatchAsync(streamId, 0, new[] { new { n1 = "v1" }, new { n1 = "v2" }, new { n1 = "v3" } });
+                await fixture.Bucket.WriteAndDispatchAsync(streamId, 3, new[] { new { n1 = "v4" } });
+                await fixture.Bucket.WriteAndDispatchAsync(streamId, 4, new[] { new { n1 = "v5" }, new { n1 = "v6" }, new { n1 = "v7" } });
+
+                Assert.Equal(false, await fixture.Bucket.HasUndispatchedCommitsAsync());
+
+                var allEvents = await fixture.Bucket.GetEventsAsync();
+                Assert.Equal(7, allEvents.Count());
+
+                await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => fixture.Bucket.GetEventsAsync(fromBucketRevision: -1));
+            }
+        }
+
+        [Fact]
+	    public async Task It_should_not_return_events_when_toBucketRevision_is_lower_than_0()
+	    {
+            using (var fixture = new MongoDbEventStoreFixture())
+            {
+                var streamId = Guid.NewGuid();
+
+                await fixture.Bucket.WriteAndDispatchAsync(streamId, 0, new[] { new { n1 = "v1" }, new { n1 = "v2" }, new { n1 = "v3" } });
+                await fixture.Bucket.WriteAndDispatchAsync(streamId, 3, new[] { new { n1 = "v4" } });
+                await fixture.Bucket.WriteAndDispatchAsync(streamId, 4, new[] { new { n1 = "v5" }, new { n1 = "v6" }, new { n1 = "v7" } });
+
+                Assert.Equal(false, await fixture.Bucket.HasUndispatchedCommitsAsync());
+
+                var allEvents = await fixture.Bucket.GetEventsAsync();
+                Assert.Equal(7, allEvents.Count());
+
+                await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => fixture.Bucket.GetEventsAsync(toBucketRevision: -1));
+            }
+        }
         
         [Fact]
         public async Task Get_events_with_pagination_from_bucket()

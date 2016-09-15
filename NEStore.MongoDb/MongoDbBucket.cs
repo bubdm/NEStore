@@ -48,7 +48,7 @@ namespace NEStore.MongoDb
 
 			try
 			{
-				await Collection.InsertOneAsync(commit); // TODO Eval WriteConcern more strict
+				await Collection.InsertOneAsync(commit);
 			}
 			catch (MongoWriteException ex)
 			{
@@ -94,14 +94,21 @@ namespace NEStore.MongoDb
 
 		public async Task<IEnumerable<CommitData>> GetCommitsAsync(Guid? streamId = null, long? fromBucketRevision = null, long? toBucketRevision = null)
 		{
-			var filter = Builders<CommitData>.Filter.Empty;
+		    if (fromBucketRevision < 0)
+		        throw new ArgumentOutOfRangeException(nameof(fromBucketRevision),
+		            $"Parameter must be greater than or equal to 0.");
+
+		    if (toBucketRevision <= 0)
+		        throw new ArgumentOutOfRangeException(nameof(toBucketRevision), $"Parameter must be greater than 0.");
+
+
+            var filter = Builders<CommitData>.Filter.Empty;
 			if (streamId != null)
 				filter = filter & Builders<CommitData>.Filter.Eq(p => p.StreamId, streamId.Value);
-
-            // TODO check fromBucketRevision > 0 & toBucketRevision < long.MaxValue ?
-            if (fromBucketRevision != null && fromBucketRevision != long.MinValue)
+            
+            if (fromBucketRevision != null)
 				filter = filter & Builders<CommitData>.Filter.Gte(p => p.BucketRevision, fromBucketRevision.Value);
-			if (toBucketRevision != null && toBucketRevision != long.MaxValue)
+			if (toBucketRevision != null)
 				filter = filter & Builders<CommitData>.Filter.Lte(p => p.BucketRevision, toBucketRevision.Value);
 
 			var commits = await Collection
@@ -177,14 +184,13 @@ namespace NEStore.MongoDb
 
 		private async Task DispatchCommitAsync(CommitData commit)
 		{
-			// TODO Eval if dispath on dispatchers in parallel
-			foreach (var dispatcher in _eventStore.GetDispatchers())
-			{
-				foreach (var e in commit.Events)
-					await dispatcher.DispatchAsync(e);
-			}
+		    foreach (var e in commit.Events)
+		    {
+		        await Task.WhenAll(
+		            _eventStore.GetDispatchers().Select(x => x.DispatchAsync(e)));
+		    }
 
-			await Collection.UpdateOneAsync(
+            await Collection.UpdateOneAsync(
 					p => p.BucketRevision == commit.BucketRevision,
 					Builders<CommitData>.Update.Set(p => p.Dispatched, true));
 		}
@@ -197,9 +203,7 @@ namespace NEStore.MongoDb
 			var found = await HasUndispatchedCommitsAsync();
 			if (found)
 				throw new UndispatchedEventsFoundException("Undispatched events found, cannot write new events");
+        }
 
-			// TODO Autodispatch undispatched commits (ensure correct exception: UndispatchedEventsFoundException)
-		}
-
-	}
+    }
 }

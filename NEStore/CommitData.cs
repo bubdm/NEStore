@@ -10,7 +10,5 @@ namespace NEStore
 		public int StreamRevisionEnd { get; set; }
 		public object[] Events { get; set; }
 		public bool Dispatched { get; set; }
-
-		// TODO Eval to add timestamp
 	}
 }

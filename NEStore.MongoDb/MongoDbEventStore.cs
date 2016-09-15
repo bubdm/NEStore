@@ -12,6 +12,8 @@ namespace NEStore.MongoDb
 		private IEventDispatcher[] _dispatchers = new IEventDispatcher[0];
 		public IMongoDatabase Database { get; }
 
+        public WriteConcern WriteConcern { get; set; } = WriteConcern.Acknowledged;
+
 		/// <summary>
 		/// Create indexes at first write
 		/// </summary>
@@ -92,7 +94,7 @@ namespace NEStore.MongoDb
 
 		private IMongoCollection<CommitData> CollectionFromBucket(string bucketName)
 		{
-			return Database.GetCollection<CommitData>(CollectionNameFromBucket(bucketName));
+			return Database.GetCollection<CommitData>(CollectionNameFromBucket(bucketName)).WithWriteConcern(WriteConcern);
 		}
 
 		private static bool IsValidBucketName(string bucketName)

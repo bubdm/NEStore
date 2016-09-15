@@ -10,6 +10,7 @@ namespace SampleMovieCatalog
 		public List<MovieContract> Movies { get; set; } = new List<MovieContract>();
 
 		// ReSharper disable UnusedMember.Local
+        // TODO This should be an AddOrUpdate
 		private void On(Movie.Created @event) => Movies.Add(new MovieContract { Id = @event.ObjectId});
 		private void On(Movie.TitleSet @event) => Movies.Find(p => p.Id == @event.ObjectId).Title = @event.Title;
 		private void On(Movie.GenreSet @event) => Movies.Find(p => p.Id == @event.ObjectId).Genre = @event.Genre;
