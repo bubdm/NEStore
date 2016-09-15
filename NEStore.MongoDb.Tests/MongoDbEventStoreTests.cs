@@ -35,6 +35,25 @@ namespace NEStore.MongoDb.Tests
 			}
 		}
 
-		// TODO Test delete bucket
-	}
+        [Fact]
+        public async Task Ensure_Bucket_delete()
+        {
+            using (var fixture = new MongoDbEventStoreFixture())
+            {
+                await fixture.Target.EnsureBucketAsync(fixture.BucketName);
+
+                var collections = await (await fixture.Target.Database.ListCollectionsAsync()).ToListAsync();
+
+                Assert.Contains(collections, p => p["name"] == $"{fixture.BucketName}.commits");
+
+                collections.Clear();
+
+                await fixture.Target.DeleteBucketAsync(fixture.BucketName);
+
+                collections = await (await fixture.Target.Database.ListCollectionsAsync()).ToListAsync();
+
+                Assert.DoesNotContain(collections, p => p["name"] == $"{fixture.BucketName}.commits");
+            }
+        }
+    }
 }
