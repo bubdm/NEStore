@@ -31,9 +31,11 @@ namespace NEStore
 	{
 		public static async Task<WriteResult> WriteAndDispatchAsync(this IBucket bucket, Guid streamId, int expectedStreamRevision, IEnumerable<object> events)
 		{
-			var result = await bucket.WriteAsync(streamId, expectedStreamRevision, events);
+			var result = await bucket.WriteAsync(streamId, expectedStreamRevision, events)
+                                .ConfigureAwait(false);
 
-			await result.DispatchTask;
+			await result.DispatchTask
+                    .ConfigureAwait(false);
 
 			return result;
 		}

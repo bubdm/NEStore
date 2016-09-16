@@ -31,24 +31,29 @@ namespace NEStore.MongoDb
 			{
 				// Note: this check doesn't ensure that in case of real concurrency no one can insert the same commit
 				//  the real check is done via a mongo index "StreamRevision"
-				var actualRevision = await GetStreamRevisionAsync(streamId);
+				var actualRevision = await GetStreamRevisionAsync(streamId)
+                                            .ConfigureAwait(false);
 				if (actualRevision > expectedStreamRevision)
 					throw new ConcurrencyWriteException("Someone else is working on the same bucket or stream");
 				if (actualRevision < expectedStreamRevision) // Ensure to write commits sequentially
 					throw new ArgumentOutOfRangeException(nameof(expectedStreamRevision));
 			}
 
-			await AutoEnsureIndexesAsync();
+			await AutoEnsureIndexesAsync()
+                    .ConfigureAwait(false);
 
-			await CheckForUndispatchedAsync();
+			await CheckForUndispatchedAsync()
+                    .ConfigureAwait(false);
 
 			var eventsArray = events.ToArray();
 
-			var commit = await CreateCommitAsync(streamId, expectedStreamRevision, eventsArray);
+			var commit = await CreateCommitAsync(streamId, expectedStreamRevision, eventsArray)
+                                .ConfigureAwait(false);
 
 			try
 			{
-				await Collection.InsertOneAsync(commit);
+				await Collection.InsertOneAsync(commit)
+                        .ConfigureAwait(false);
 			}
 			catch (MongoWriteException ex)
 			{
@@ -66,10 +71,12 @@ namespace NEStore.MongoDb
 			var commits = await Collection
 				.Find(p => p.Dispatched == false)
 				.Sort(Builders<CommitData>.Sort.Ascending(p => p.BucketRevision))
-				.ToListAsync();
+				.ToListAsync()
+                .ConfigureAwait(false);
 
 			foreach (var commit in commits)
-				await DispatchCommitAsync(commit);
+				await DispatchCommitAsync(commit)
+                    .ConfigureAwait(false);
 		}
 
 		public Task RollbackAsync(long bucketRevision)
@@ -80,7 +87,8 @@ namespace NEStore.MongoDb
 
 		public async Task<IEnumerable<object>> GetEventsAsync(Guid? streamId = null, long? fromBucketRevision = null, long? toBucketRevision = null)
 		{
-			var commits = await GetCommitsAsync(streamId, fromBucketRevision, toBucketRevision);
+			var commits = await GetCommitsAsync(streamId, fromBucketRevision, toBucketRevision)
+                                    .ConfigureAwait(false);
 
 			return commits.SelectMany(c => c.Events);
 		}
@@ -89,7 +97,8 @@ namespace NEStore.MongoDb
 		{
 			return await Collection
 				.Find(p => p.Dispatched == false)
-				.AnyAsync();
+				.AnyAsync()
+                .ConfigureAwait(false);
 		}
 
 		public async Task<IEnumerable<CommitData>> GetCommitsAsync(Guid? streamId = null, long? fromBucketRevision = null, long? toBucketRevision = null)
@@ -114,7 +123,8 @@ namespace NEStore.MongoDb
 			var commits = await Collection
 				.Find(filter)
 				.Sort(Builders<CommitData>.Sort.Ascending(p => p.BucketRevision))
-				.ToListAsync();
+				.ToListAsync()
+                .ConfigureAwait(false);
 
 			return commits;
 		}
@@ -124,7 +134,8 @@ namespace NEStore.MongoDb
 			var result = await Collection
 				.Find(Builders<CommitData>.Filter.Empty)
 				.Sort(Builders<CommitData>.Sort.Descending(p => p.BucketRevision))
-				.FirstOrDefaultAsync();
+				.FirstOrDefaultAsync()
+                .ConfigureAwait(false);
 
 			return result?.BucketRevision ?? 0;
 		}
@@ -138,7 +149,8 @@ namespace NEStore.MongoDb
 			var result = await Collection
 				.Find(filter)
 				.Sort(Builders<CommitData>.Sort.Descending(p => p.BucketRevision))
-				.FirstOrDefaultAsync();
+				.FirstOrDefaultAsync()
+                .ConfigureAwait(false);
 
 			return result?.StreamRevisionEnd ?? 0;
 		}
@@ -152,8 +164,10 @@ namespace NEStore.MongoDb
 				filter = filter & Builders<CommitData>.Filter.Lte(p => p.BucketRevision, toBucketRevision.Value);
 
 			var cursor = await Collection
-				.DistinctAsync(p => p.StreamId, filter);
-			var result = await cursor.ToListAsync();
+				.DistinctAsync(p => p.StreamId, filter)
+                .ConfigureAwait(false);
+			var result = await cursor.ToListAsync()
+                                .ConfigureAwait(false);
 
 			return result;
 		}
@@ -163,7 +177,7 @@ namespace NEStore.MongoDb
 		{
 			var commit = new CommitData
 			{
-				BucketRevision = await GetBucketRevisionAsync() + 1,
+				BucketRevision = await GetBucketRevisionAsync().ConfigureAwait(false) + 1,
 				Dispatched = false,
 				Events = eventsArray,
 				StreamId = streamId,
@@ -178,7 +192,8 @@ namespace NEStore.MongoDb
 			if (_indexesEnsured || !_eventStore.AutoEnsureIndexes)
 				return;
 
-			await _eventStore.EnsureBucketAsync(BucketName);
+			await _eventStore.EnsureBucketAsync(BucketName)
+                                .ConfigureAwait(false);
 			_indexesEnsured = true;
 		}
 
@@ -186,13 +201,14 @@ namespace NEStore.MongoDb
 		{
 		    foreach (var e in commit.Events)
 		    {
-		        await Task.WhenAll(
-		            _eventStore.GetDispatchers().Select(x => x.DispatchAsync(e)));
+		        await Task.WhenAll(_eventStore.GetDispatchers().Select(x => x.DispatchAsync(e)))
+                        .ConfigureAwait(false);
 		    }
 
             await Collection.UpdateOneAsync(
-					p => p.BucketRevision == commit.BucketRevision,
-					Builders<CommitData>.Update.Set(p => p.Dispatched, true));
+					    p => p.BucketRevision == commit.BucketRevision,
+					    Builders<CommitData>.Update.Set(p => p.Dispatched, true))
+                    .ConfigureAwait(false);
 		}
 
 		private async Task CheckForUndispatchedAsync()
@@ -200,7 +216,8 @@ namespace NEStore.MongoDb
 			if (!_eventStore.AutoCheckUndispatched)
 				return;
 
-			var found = await HasUndispatchedCommitsAsync();
+			var found = await HasUndispatchedCommitsAsync()
+                                .ConfigureAwait(false);
 			if (found)
 				throw new UndispatchedEventsFoundException("Undispatched events found, cannot write new events");
         }

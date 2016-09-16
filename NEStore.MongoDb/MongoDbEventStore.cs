@@ -61,12 +61,13 @@ namespace NEStore.MongoDb
 				new CreateIndexModel<CommitData>(builder
 					.Ascending(p => p.StreamId)
 					.Ascending(p => p.StreamRevisionStart), new CreateIndexOptions { Name = "StreamRevision", Unique = true })
-			});
+			}).ConfigureAwait(false);
 		}
 
 		public async Task DeleteBucketAsync(string bucketName)
 		{
-			await Database.DropCollectionAsync(CollectionNameFromBucket(bucketName));
+			await Database.DropCollectionAsync(CollectionNameFromBucket(bucketName))
+                    .ConfigureAwait(false);
 		}
 
 		public IBucket Bucket(string bucketName)

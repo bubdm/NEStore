@@ -21,7 +21,8 @@ namespace NEStore.Aggregates
 				.ToList();
 
 			var version = lastVersion - changes.Count;
-			await _bucket.WriteAsync(aggregate.ObjectId, version, changes);
+			await _bucket.WriteAsync(aggregate.ObjectId, version, changes)
+                    .ConfigureAwait(false);
 
 			aggregate.ClearChanges();
 		}
@@ -29,7 +30,8 @@ namespace NEStore.Aggregates
 		public async Task<T> LoadAsync<T>(Guid objectId)
 			where T : Aggregate
 		{
-			var events = (await _bucket.GetEventsAsync(objectId))
+			var events = (await _bucket.GetEventsAsync(objectId)
+                            .ConfigureAwait(false))
 				.Cast<IEvent>();
 			var aggregate = (T)Activator.CreateInstance(typeof(T), events);
 
