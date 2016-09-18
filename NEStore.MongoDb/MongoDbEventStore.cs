@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -9,19 +10,26 @@ namespace NEStore.MongoDb
 {
 	public class MongoDbEventStore : IEventStore
 	{
+		private ConcurrentDictionary<string, MongoDbBucket> _buckets = new ConcurrentDictionary<string, MongoDbBucket>();
 		private IEventDispatcher[] _dispatchers = new IEventDispatcher[0];
 		public IMongoDatabase Database { get; }
 
-        public WriteConcern WriteConcern { get; set; } = WriteConcern.Acknowledged;
-
 		/// <summary>
-		/// Create indexes at first write
+		/// Configure the MongoDb write concern. Default is Acknowledged.
+		/// </summary>
+		public WriteConcern WriteConcern { get; set; } = WriteConcern.Acknowledged;
+		/// <summary>
+		/// Create indexes at first write. Default is true.
 		/// </summary>
 		public bool AutoEnsureIndexes { get; set; } = true;
 		/// <summary>
-		/// Check for undispatched events at each write
+		/// Check for undispatched events at each write. Default is true.
 		/// </summary>
 		public bool AutoCheckUndispatched { get; set; } = true;
+		/// <summary>
+		/// Manually check for stream revision validity before writing any data. Default is true.
+		/// </summary>
+		public bool CheckStreamRevisionBeforeWriting { get; set; } = true;
 
 		static MongoDbEventStore()
 		{
@@ -67,12 +75,15 @@ namespace NEStore.MongoDb
 		public async Task DeleteBucketAsync(string bucketName)
 		{
 			await Database.DropCollectionAsync(CollectionNameFromBucket(bucketName))
-                    .ConfigureAwait(false);
+										.ConfigureAwait(false);
 		}
 
 		public IBucket Bucket(string bucketName)
 		{
-			return new MongoDbBucket(this, bucketName, CollectionFromBucket(bucketName));
+			return _buckets.GetOrAdd(
+				bucketName,
+				b => new MongoDbBucket(this, b)
+				);
 		}
 
 		public void RegisterDispatchers(params IEventDispatcher[] dispatchers)
@@ -85,17 +96,18 @@ namespace NEStore.MongoDb
 			return _dispatchers;
 		}
 
+		public IMongoCollection<CommitData> CollectionFromBucket(string bucketName)
+		{
+			return Database.GetCollection<CommitData>(CollectionNameFromBucket(bucketName))
+				.WithWriteConcern(WriteConcern);
+		}
+
 		private static string CollectionNameFromBucket(string bucketName)
 		{
 			if (!IsValidBucketName(bucketName))
 				throw new ArgumentException("Invalid bucket name");
 
 			return $"{bucketName}.commits";
-		}
-
-		private IMongoCollection<CommitData> CollectionFromBucket(string bucketName)
-		{
-			return Database.GetCollection<CommitData>(CollectionNameFromBucket(bucketName)).WithWriteConcern(WriteConcern);
 		}
 
 		private static bool IsValidBucketName(string bucketName)

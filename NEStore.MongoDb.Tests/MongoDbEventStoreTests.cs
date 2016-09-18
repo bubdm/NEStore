@@ -18,7 +18,7 @@ namespace NEStore.MongoDb.Tests
 		{
 			using (var fixture = new MongoDbEventStoreFixture())
 			{
-				await Assert.ThrowsAsync<ArgumentException>(() => fixture.Target.EnsureBucketAsync(bucketName));
+				await Assert.ThrowsAsync<ArgumentException>(() => fixture.EventStore.EnsureBucketAsync(bucketName));
 			}
 		}
 
@@ -27,9 +27,9 @@ namespace NEStore.MongoDb.Tests
 		{
 			using (var fixture = new MongoDbEventStoreFixture())
 			{
-				await fixture.Target.EnsureBucketAsync(fixture.BucketName);
+				await fixture.EventStore.EnsureBucketAsync(fixture.BucketName);
 
-				var collections = await (await fixture.Target.Database.ListCollectionsAsync()).ToListAsync();
+				var collections = await (await fixture.EventStore.Database.ListCollectionsAsync()).ToListAsync();
 
 				Assert.Contains(collections, p => p["name"] == $"{fixture.BucketName}.commits");
 			}
@@ -40,15 +40,15 @@ namespace NEStore.MongoDb.Tests
         {
             using (var fixture = new MongoDbEventStoreFixture())
             {
-                await fixture.Target.EnsureBucketAsync(fixture.BucketName);
+                await fixture.EventStore.EnsureBucketAsync(fixture.BucketName);
 
-                var collections = await (await fixture.Target.Database.ListCollectionsAsync()).ToListAsync();
+                var collections = await (await fixture.EventStore.Database.ListCollectionsAsync()).ToListAsync();
 
                 Assert.Contains(collections, p => p["name"] == $"{fixture.BucketName}.commits");
 
-                await fixture.Target.DeleteBucketAsync(fixture.BucketName);
+                await fixture.EventStore.DeleteBucketAsync(fixture.BucketName);
 
-                collections = await (await fixture.Target.Database.ListCollectionsAsync()).ToListAsync();
+                collections = await (await fixture.EventStore.Database.ListCollectionsAsync()).ToListAsync();
 
                 Assert.DoesNotContain(collections, p => p["name"] == $"{fixture.BucketName}.commits");
             }

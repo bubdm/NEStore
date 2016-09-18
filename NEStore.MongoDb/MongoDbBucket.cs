@@ -13,12 +13,10 @@ namespace NEStore.MongoDb
 		public IMongoCollection<CommitData> Collection { get; }
 		public string BucketName { get; }
 
-		public bool CheckStreamRevisionBeforeWriting { get; set; } = true;
-
-		public MongoDbBucket(MongoDbEventStore eventStore, string bucketName, IMongoCollection<CommitData> collection)
+		public MongoDbBucket(MongoDbEventStore eventStore, string bucketName)
 		{
 			_eventStore = eventStore;
-			Collection = collection;
+			Collection = eventStore.CollectionFromBucket(bucketName);
 			BucketName = bucketName;
 		}
 
@@ -27,10 +25,11 @@ namespace NEStore.MongoDb
 			if (expectedStreamRevision < 0)
 				throw new ArgumentOutOfRangeException(nameof(expectedStreamRevision));
 
-			if (CheckStreamRevisionBeforeWriting)
+			if (_eventStore.CheckStreamRevisionBeforeWriting)
 			{
 				// Note: this check doesn't ensure that in case of real concurrency no one can insert the same commit
-				//  the real check is done via a mongo index "StreamRevision"
+				//  the real check is done via a mongo index "StreamRevision". This check basically just ensure to do not write 
+				//  revision with holes
 				var actualRevision = await GetStreamRevisionAsync(streamId)
 																						.ConfigureAwait(false);
 				if (actualRevision > expectedStreamRevision)
@@ -40,20 +39,20 @@ namespace NEStore.MongoDb
 			}
 
 			await AutoEnsureIndexesAsync()
-										.ConfigureAwait(false);
+				.ConfigureAwait(false);
 
 			await CheckForUndispatchedAsync()
-										.ConfigureAwait(false);
+				.ConfigureAwait(false);
 
 			var eventsArray = events.ToArray();
 
 			var commit = await CreateCommitAsync(streamId, expectedStreamRevision, eventsArray)
-																.ConfigureAwait(false);
+				.ConfigureAwait(false);
 
 			try
 			{
 				await Collection.InsertOneAsync(commit)
-												.ConfigureAwait(false);
+					.ConfigureAwait(false);
 			}
 			catch (MongoWriteException ex)
 			{
@@ -72,11 +71,11 @@ namespace NEStore.MongoDb
 				.Find(p => p.Dispatched == false)
 				.Sort(Builders<CommitData>.Sort.Ascending(p => p.BucketRevision))
 				.ToListAsync()
-								.ConfigureAwait(false);
+				.ConfigureAwait(false);
 
 			foreach (var commit in commits)
 				await DispatchCommitAsync(commit)
-										.ConfigureAwait(false);
+					.ConfigureAwait(false);
 		}
 
 		public Task RollbackAsync(long bucketRevision)
@@ -88,7 +87,7 @@ namespace NEStore.MongoDb
 		public async Task<IEnumerable<object>> GetEventsAsync(Guid? streamId = null, long? fromBucketRevision = null, long? toBucketRevision = null)
 		{
 			var commits = await GetCommitsAsync(streamId, fromBucketRevision, toBucketRevision)
-																		.ConfigureAwait(false);
+				.ConfigureAwait(false);
 
 			return commits.SelectMany(c => c.Events);
 		}
@@ -133,7 +132,7 @@ namespace NEStore.MongoDb
 			return await Collection
 				.Find(p => p.Dispatched == false)
 				.AnyAsync()
-								.ConfigureAwait(false);
+				.ConfigureAwait(false);
 		}
 
 		public async Task<IEnumerable<CommitData>> GetCommitsAsync(Guid? streamId = null, long? fromBucketRevision = null, long? toBucketRevision = null)
@@ -158,7 +157,7 @@ namespace NEStore.MongoDb
 				.Find(filter)
 				.Sort(Builders<CommitData>.Sort.Ascending(p => p.BucketRevision))
 				.ToListAsync()
-								.ConfigureAwait(false);
+				.ConfigureAwait(false);
 
 			return commits;
 		}
@@ -169,7 +168,7 @@ namespace NEStore.MongoDb
 				.Find(Builders<CommitData>.Filter.Empty)
 				.Sort(Builders<CommitData>.Sort.Descending(p => p.BucketRevision))
 				.FirstOrDefaultAsync()
-								.ConfigureAwait(false);
+				.ConfigureAwait(false);
 
 			return result?.BucketRevision ?? 0;
 		}
@@ -184,7 +183,7 @@ namespace NEStore.MongoDb
 				.Find(filter)
 				.Sort(Builders<CommitData>.Sort.Descending(p => p.BucketRevision))
 				.FirstOrDefaultAsync()
-								.ConfigureAwait(false);
+				.ConfigureAwait(false);
 
 			return result?.StreamRevisionEnd ?? 0;
 		}
@@ -199,9 +198,9 @@ namespace NEStore.MongoDb
 
 			var cursor = await Collection
 				.DistinctAsync(p => p.StreamId, filter)
-								.ConfigureAwait(false);
+				.ConfigureAwait(false);
 			var result = await cursor.ToListAsync()
-																.ConfigureAwait(false);
+				.ConfigureAwait(false);
 
 			return result;
 		}
@@ -227,7 +226,7 @@ namespace NEStore.MongoDb
 				return;
 
 			await _eventStore.EnsureBucketAsync(BucketName)
-																.ConfigureAwait(false);
+				.ConfigureAwait(false);
 			_indexesEnsured = true;
 		}
 
@@ -236,13 +235,13 @@ namespace NEStore.MongoDb
 			foreach (var e in commit.Events)
 			{
 				await Task.WhenAll(_eventStore.GetDispatchers().Select(x => x.DispatchAsync(e)))
-										.ConfigureAwait(false);
+					.ConfigureAwait(false);
 			}
 
 			await Collection.UpdateOneAsync(
 				p => p.BucketRevision == commit.BucketRevision,
 				Builders<CommitData>.Update.Set(p => p.Dispatched, true))
-							.ConfigureAwait(false);
+				.ConfigureAwait(false);
 		}
 
 		private async Task CheckForUndispatchedAsync()
@@ -250,10 +249,12 @@ namespace NEStore.MongoDb
 			if (!_eventStore.AutoCheckUndispatched)
 				return;
 
-			var found = await HasUndispatchedCommitsAsync()
-																.ConfigureAwait(false);
-			if (found)
+			var hasUndispatched = await HasUndispatchedCommitsAsync()
+				.ConfigureAwait(false);
+			if (hasUndispatched)
 				throw new UndispatchedEventsFoundException("Undispatched events found, cannot write new events");
+
+			// Eventually here I can try to dispatch undispatched to try to "recover" from a broken situations...
 		}
 
 	}

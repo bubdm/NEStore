@@ -121,7 +121,7 @@ namespace NEStore.MongoDb.Tests
 			{
 				var streamId = Guid.NewGuid();
 
-				fixture.Bucket.CheckStreamRevisionBeforeWriting = false;
+				fixture.EventStore.CheckStreamRevisionBeforeWriting = false;
 
 				await fixture.Bucket.WriteAndDispatchAsync(streamId, 0, new[] { new { n1 = "v1" } });
 

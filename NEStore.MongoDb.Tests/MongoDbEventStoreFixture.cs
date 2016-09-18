@@ -9,21 +9,21 @@ namespace NEStore.MongoDb.Tests
 	public class MongoDbEventStoreFixture : IDisposable
 	{
 		public string BucketName { get; }
-		public MongoDbEventStore Target { get; }
+		public MongoDbEventStore EventStore { get; }
 		public MongoDbBucket Bucket { get; }
 		public Mock<IEventDispatcher> Dispatcher { get; }
 
 		public MongoDbEventStoreFixture()
 		{
 			BucketName = RandomString(10);
-			Target = CreateTarget();
+			EventStore = CreateTarget();
 			Dispatcher = new Mock<IEventDispatcher>();
 
 			Dispatcher.Setup(p => p.DispatchAsync(It.IsAny<object>()))
-				.Returns<object>((e) => Task.Delay(200));
+				.Returns<object>(e => Task.Delay(200));
 
-			Target.RegisterDispatchers(Dispatcher.Object);
-			Bucket = Target.Bucket(BucketName) as MongoDbBucket;
+			EventStore.RegisterDispatchers(Dispatcher.Object);
+			Bucket = EventStore.Bucket(BucketName) as MongoDbBucket;
 		}
 
 		public void Dispose()
@@ -33,7 +33,7 @@ namespace NEStore.MongoDb.Tests
 
 		public void CleanUp()
 		{
-			Target.DeleteBucketAsync(BucketName).Wait();
+			EventStore.DeleteBucketAsync(BucketName).Wait();
 		}
 
 		private static MongoDbEventStore CreateTarget()
