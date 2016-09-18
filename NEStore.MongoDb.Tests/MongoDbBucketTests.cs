@@ -17,6 +17,10 @@ namespace NEStore.MongoDb.Tests
 				Assert.Equal(0, (await fixture.Bucket.GetBucketRevisionAsync()));
 				Assert.Equal(0, (await fixture.Bucket.GetStreamRevisionAsync(Guid.NewGuid())));
 				Assert.Equal(0, (await fixture.Bucket.GetStreamIdsAsync()).Count());
+				Assert.Equal(0, (await fixture.Bucket.GetEventsAsync()).Count());
+				Assert.Equal(0, (await fixture.Bucket.GetEventsForStreamAsync(Guid.NewGuid())).Count());
+				Assert.Equal(0, (await fixture.Bucket.GetCommitsAsync(Guid.NewGuid())).Count());
+				Assert.Equal(false, await fixture.Bucket.HasUndispatchedCommitsAsync());
 			}
 		}
 
@@ -136,7 +140,7 @@ namespace NEStore.MongoDb.Tests
 			{
 				var streamId = Guid.NewGuid();
 
-				var result = await fixture.Bucket.WriteAndDispatchAsync(streamId, 0, new[] { new { n1 = "v1" }, new { n1 = "v2" }, new { n1 = "v3" } });
+				await fixture.Bucket.WriteAndDispatchAsync(streamId, 0, new[] { new { n1 = "v1" }, new { n1 = "v2" }, new { n1 = "v3" } });
 
 				Assert.Equal(1, (await fixture.Bucket.GetBucketRevisionAsync()));
 				Assert.Equal(streamId, (await fixture.Bucket.GetStreamIdsAsync()).Single());
@@ -458,7 +462,8 @@ namespace NEStore.MongoDb.Tests
 
 				Assert.Equal(false, await fixture.Bucket.HasUndispatchedCommitsAsync());
 
-				var allEvents = await fixture.Bucket.GetEventsAsync();
+				var allEvents = (await fixture.Bucket.GetEventsAsync())
+					.ToList();
 
 				Assert.Equal(7, allEvents.Count());
 
@@ -698,16 +703,18 @@ namespace NEStore.MongoDb.Tests
 
 		public class FakeEvent
 		{
+			private readonly int _hashCode;
 			public int V { get; private set; }
 
 			public FakeEvent(int v)
 			{
+				_hashCode = v.GetHashCode();
 				V = v;
 			}
 
 			public override int GetHashCode()
 			{
-				return V.GetHashCode();
+				return _hashCode.GetHashCode();
 			}
 
 			public override bool Equals(object obj)
