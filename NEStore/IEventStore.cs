@@ -11,8 +11,8 @@ namespace NEStore
 
 		IBucket<T> Bucket(string bucketName);
 
-		void RegisterDispatchers(params IEventDispatcher<T>[] dispatchers);
+		void RegisterDispatchers(params IDispatcher<T>[] dispatchers);
 		
-		IEnumerable<IEventDispatcher<T>> GetDispatchers();
+		IEnumerable<IDispatcher<T>> GetDispatchers();
 	}
 }

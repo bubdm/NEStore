@@ -10,8 +10,8 @@ namespace NEStore.MongoDb
 {
 	public class MongoDbEventStore<T> : IEventStore<T>
 	{
-		private ConcurrentDictionary<string, MongoDbBucket<T>> _buckets = new ConcurrentDictionary<string, MongoDbBucket<T>>();
-		private IEventDispatcher<T>[] _dispatchers = new IEventDispatcher<T>[0];
+		private readonly ConcurrentDictionary<string, MongoDbBucket<T>> _buckets = new ConcurrentDictionary<string, MongoDbBucket<T>>();
+		private IDispatcher<T>[] _dispatchers = new IDispatcher<T>[0];
 		public IMongoDatabase Database { get; }
 
 		/// <summary>
@@ -86,12 +86,12 @@ namespace NEStore.MongoDb
 				);
 		}
 
-		public void RegisterDispatchers(params IEventDispatcher<T>[] dispatchers)
+		public void RegisterDispatchers(params IDispatcher<T>[] dispatchers)
 		{
 			_dispatchers = dispatchers;
 		}
 
-		public IEnumerable<IEventDispatcher<T>> GetDispatchers()
+		public IEnumerable<IDispatcher<T>> GetDispatchers()
 		{
 			return _dispatchers;
 		}

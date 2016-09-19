@@ -241,11 +241,8 @@ namespace NEStore.MongoDb
 
 		private async Task DispatchCommitAsync(CommitData<T> commit)
 		{
-			foreach (var e in commit.Events)
-			{
-				await Task.WhenAll(_eventStore.GetDispatchers().Select(x => x.DispatchAsync(e)))
-					.ConfigureAwait(false);
-			}
+			await Task.WhenAll(_eventStore.GetDispatchers().Select(x => x.DispatchAsync(commit)))
+				.ConfigureAwait(false);
 
 			await Collection.UpdateOneAsync(
 				p => p.BucketRevision == commit.BucketRevision,

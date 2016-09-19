@@ -11,13 +11,13 @@ namespace NEStore.MongoDb.Tests
 		public string BucketName { get; }
 		public MongoDbEventStore<object> EventStore { get; }
 		public MongoDbBucket<object> Bucket { get; }
-		public Mock<IEventDispatcher<object>> Dispatcher { get; }
+		public Mock<IDispatcher<object>> Dispatcher { get; }
 
 		public MongoDbEventStoreFixture()
 		{
 			BucketName = RandomString(10);
 			EventStore = CreateTarget();
-			Dispatcher = new Mock<IEventDispatcher<object>>();
+			Dispatcher = new Mock<IDispatcher<object>>();
 
 			Dispatcher.Setup(p => p.DispatchAsync(It.IsAny<object>()))
 				.Returns<object>(e => Task.Delay(50));

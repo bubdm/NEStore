@@ -89,9 +89,9 @@ namespace SampleMovieCatalog
 			foreach (ProjectionBase projection in _eventStore.GetDispatchers())
 				await projection.ClearAsync();
 
-			foreach (var e in await _store.GetEventsAsync())
+			foreach (var c in await _store.GetCommitsAsync())
 				foreach (var projection in _eventStore.GetDispatchers())
-					await projection.DispatchAsync(e);
+					await projection.DispatchAsync(c);
 		}
 
 		private static async Task RollbackAsync()

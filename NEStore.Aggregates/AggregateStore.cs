@@ -43,6 +43,11 @@ namespace NEStore.Aggregates
 			return _bucket.GetEventsAsync();
 		}
 
+		public Task<IEnumerable<CommitData<IEvent>>> GetCommitsAsync()
+		{
+			return _bucket.GetCommitsAsync();
+		}
+
 		public Task RollbackAsync(int bucketRevision)
 		{
 			return _bucket.RollbackAsync(bucketRevision);
