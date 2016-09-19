@@ -82,8 +82,8 @@
   <ItemGroup>
     <Compile Include="MongoDbEventStoreFixture.cs" />
     <Compile Include="MongoDbBucketTests.cs" />
-    <Compile Include="MongoDbEventStoreTests.cs" />
     <Compile Include="MongoDbSerializationTests.cs" />
+    <Compile Include="MongoDbEventStoreTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>

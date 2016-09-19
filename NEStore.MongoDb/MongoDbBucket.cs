@@ -84,7 +84,7 @@ namespace NEStore.MongoDb
 				.DeleteManyAsync(p => p.BucketRevision > bucketRevision);
 		}
 
-		public async Task<IEnumerable<T>> GetEventsAsync(Guid? streamId = null, long? fromBucketRevision = null, long? toBucketRevision = null)
+		public async Task<IEnumerable<T>> GetEventsAsync(Guid? streamId = null, long fromBucketRevision = 1, long? toBucketRevision = null)
 		{
 			var commits = await GetCommitsAsync(streamId, fromBucketRevision, toBucketRevision)
 				.ConfigureAwait(false);
@@ -92,7 +92,7 @@ namespace NEStore.MongoDb
 			return commits.SelectMany(c => c.Events);
 		}
 
-		public async Task<IEnumerable<T>> GetEventsForStreamAsync(Guid streamId, int? fromStreamRevision = null, int? toStreamRevision = null)
+		public async Task<IEnumerable<T>> GetEventsForStreamAsync(Guid streamId, int fromStreamRevision = 1, int? toStreamRevision = null)
 		{
 			if (fromStreamRevision <= 0)
 				throw new ArgumentOutOfRangeException(nameof(fromStreamRevision),
@@ -118,7 +118,7 @@ namespace NEStore.MongoDb
 				.SelectMany(c => c.Events)
 				.ToList();
 
-			var safeFrom = fromStreamRevision ?? 1;
+			var safeFrom = fromStreamRevision;
 			var safeTo = toStreamRevision ?? events.Count;
 
 			return events
@@ -135,7 +135,7 @@ namespace NEStore.MongoDb
 				.ConfigureAwait(false);
 		}
 
-		public async Task<IEnumerable<CommitData<T>>> GetCommitsAsync(Guid? streamId = null, long? fromBucketRevision = null, long? toBucketRevision = null)
+		public async Task<IEnumerable<CommitData<T>>> GetCommitsAsync(Guid? streamId = null, long fromBucketRevision = 1, long? toBucketRevision = null)
 		{
 			if (fromBucketRevision <= 0)
 				throw new ArgumentOutOfRangeException(nameof(fromBucketRevision),
@@ -148,8 +148,8 @@ namespace NEStore.MongoDb
 			if (streamId != null)
 				filter = filter & Builders<CommitData<T>>.Filter.Eq(p => p.StreamId, streamId.Value);
 
-			if (fromBucketRevision != null)
-				filter = filter & Builders<CommitData<T>>.Filter.Gte(p => p.BucketRevision, fromBucketRevision.Value);
+			if (fromBucketRevision != 1)
+				filter = filter & Builders<CommitData<T>>.Filter.Gte(p => p.BucketRevision, fromBucketRevision);
 			if (toBucketRevision != null)
 				filter = filter & Builders<CommitData<T>>.Filter.Lte(p => p.BucketRevision, toBucketRevision.Value);
 
@@ -175,8 +175,11 @@ namespace NEStore.MongoDb
 
 		public async Task<int> GetStreamRevisionAsync(Guid streamId, long? atBucketRevision = null)
 		{
+			if (atBucketRevision <= 0)
+				throw new ArgumentOutOfRangeException(nameof(atBucketRevision), "Parameter must be greater than 0.");
+
 			var filter = Builders<CommitData<T>>.Filter.Eq(p => p.StreamId, streamId);
-			if (atBucketRevision != null && atBucketRevision != long.MaxValue)
+			if (atBucketRevision != null)
 				filter = filter & Builders<CommitData<T>>.Filter.Lte(p => p.BucketRevision, atBucketRevision.Value);
 
 			var result = await Collection
@@ -188,12 +191,18 @@ namespace NEStore.MongoDb
 			return result?.StreamRevisionEnd ?? 0;
 		}
 
-		public async Task<IEnumerable<Guid>> GetStreamIdsAsync(long? fromBucketRevision = null, long? toBucketRevision = null)
+		public async Task<IEnumerable<Guid>> GetStreamIdsAsync(long fromBucketRevision = 1, long? toBucketRevision = null)
 		{
+			if (fromBucketRevision <= 0)
+				throw new ArgumentOutOfRangeException(nameof(fromBucketRevision), "Parameter must be greater than 0.");
+
+			if (toBucketRevision <= 0)
+				throw new ArgumentOutOfRangeException(nameof(toBucketRevision), "Parameter must be greater than 0.");
+
 			var filter = Builders<CommitData<T>>.Filter.Empty;
-			if (fromBucketRevision != null && fromBucketRevision != long.MinValue)
-				filter = filter & Builders<CommitData<T>>.Filter.Gte(p => p.BucketRevision, fromBucketRevision.Value);
-			if (toBucketRevision != null && toBucketRevision != long.MaxValue)
+			if (fromBucketRevision != 1)
+				filter = filter & Builders<CommitData<T>>.Filter.Gte(p => p.BucketRevision, fromBucketRevision);
+			if (toBucketRevision != null)
 				filter = filter & Builders<CommitData<T>>.Filter.Lte(p => p.BucketRevision, toBucketRevision.Value);
 
 			var cursor = await Collection

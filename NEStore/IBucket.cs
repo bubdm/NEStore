@@ -14,19 +14,19 @@ namespace NEStore
 
 		Task RollbackAsync(long bucketRevision);
 
-		Task<IEnumerable<T>> GetEventsAsync(Guid? streamId = null, long? fromBucketRevision = null, long? toBucketRevision = null);
+		Task<IEnumerable<T>> GetEventsAsync(Guid? streamId = null, long fromBucketRevision = 1, long? toBucketRevision = null);
 
-		Task<IEnumerable<T>> GetEventsForStreamAsync(Guid streamId, int? fromStreamRevision = null, int? toStreamRevision = null);
+		Task<IEnumerable<T>> GetEventsForStreamAsync(Guid streamId, int fromStreamRevision = 1, int? toStreamRevision = null);
 
 		Task<bool> HasUndispatchedCommitsAsync();
 
-		Task<IEnumerable<CommitData<T>>> GetCommitsAsync(Guid? streamId = null, long? fromBucketRevision = null, long? toBucketRevision = null);
+		Task<IEnumerable<CommitData<T>>> GetCommitsAsync(Guid? streamId = null, long fromBucketRevision = 1, long? toBucketRevision = null);
 
 		Task<long> GetBucketRevisionAsync();
 
 		Task<int> GetStreamRevisionAsync(Guid streamId, long? atBucketRevision = null);
 
-		Task<IEnumerable<Guid>> GetStreamIdsAsync(long? fromBucketRevision = null, long? toBucketRevision = null);
+		Task<IEnumerable<Guid>> GetStreamIdsAsync(long fromBucketRevision = 1, long? toBucketRevision = null);
 	}
 
 	public static class BucketExtensions
