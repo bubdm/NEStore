@@ -4,23 +4,23 @@ using System.Threading.Tasks;
 
 namespace NEStore
 {
-	public interface IBucket
+	public interface IBucket<T>
 	{
 		string BucketName { get; }
 
-		Task<WriteResult> WriteAsync(Guid streamId, int expectedStreamRevision, IEnumerable<object> events);
+		Task<WriteResult<T>> WriteAsync(Guid streamId, int expectedStreamRevision, IEnumerable<T> events);
 
 		Task DispatchUndispatchedAsync();
 
 		Task RollbackAsync(long bucketRevision);
 
-		Task<IEnumerable<object>> GetEventsAsync(Guid? streamId = null, long? fromBucketRevision = null, long? toBucketRevision = null);
+		Task<IEnumerable<T>> GetEventsAsync(Guid? streamId = null, long? fromBucketRevision = null, long? toBucketRevision = null);
 
-		Task<IEnumerable<object>> GetEventsForStreamAsync(Guid streamId, int? fromStreamRevision = null, int? toStreamRevision = null);
+		Task<IEnumerable<T>> GetEventsForStreamAsync(Guid streamId, int? fromStreamRevision = null, int? toStreamRevision = null);
 
 		Task<bool> HasUndispatchedCommitsAsync();
 
-		Task<IEnumerable<CommitData>> GetCommitsAsync(Guid? streamId = null, long? fromBucketRevision = null, long? toBucketRevision = null);
+		Task<IEnumerable<CommitData<T>>> GetCommitsAsync(Guid? streamId = null, long? fromBucketRevision = null, long? toBucketRevision = null);
 
 		Task<long> GetBucketRevisionAsync();
 
@@ -31,7 +31,7 @@ namespace NEStore
 
 	public static class BucketExtensions
 	{
-		public static async Task<WriteResult> WriteAndDispatchAsync(this IBucket bucket, Guid streamId, int expectedStreamRevision, IEnumerable<object> events)
+		public static async Task<WriteResult<T>> WriteAndDispatchAsync<T>(this IBucket<T> bucket, Guid streamId, int expectedStreamRevision, IEnumerable<T> events)
 		{
 			var result = await bucket.WriteAsync(streamId, expectedStreamRevision, events)
                                 .ConfigureAwait(false);

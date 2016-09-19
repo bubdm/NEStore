@@ -2,8 +2,8 @@ using System.Threading.Tasks;
 
 namespace NEStore
 {
-	public interface IEventDispatcher
+	public interface IEventDispatcher<T>
 	{
-		Task DispatchAsync(object @event);
+		Task DispatchAsync(T @event);
 	}
 }

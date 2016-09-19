@@ -7,9 +7,9 @@ namespace NEStore.Aggregates
 {
 	public class AggregateStore
 	{
-		private readonly IBucket _bucket;
+		private readonly IBucket<IEvent> _bucket;
 
-		public AggregateStore(IBucket bucket)
+		public AggregateStore(IBucket<IEvent> bucket)
 		{
 			_bucket = bucket;
 		}
@@ -38,7 +38,7 @@ namespace NEStore.Aggregates
 			return aggregate;
 		}
 
-		public Task<IEnumerable<object>> GetEventsAsync()
+		public Task<IEnumerable<IEvent>> GetEventsAsync()
 		{
 			return _bucket.GetEventsAsync();
 		}

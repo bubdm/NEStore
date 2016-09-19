@@ -31,7 +31,11 @@ namespace NEStore.MongoDb.Tests
 			{
 				var streamId = Guid.NewGuid();
 
-				await fixture.Bucket.WriteAsync(streamId, 0, new[] { new { n1 = "v1" } });
+				var result = await fixture.Bucket.WriteAsync(streamId, 0, new[] { new { n1 = "v1" } });
+
+				Assert.NotNull(result);
+				Assert.NotNull(result.Commit);
+				Assert.Equal(1, result.Commit.Events.Length);
 
 				Assert.Equal(1, (await fixture.Bucket.GetBucketRevisionAsync()));
 				Assert.Equal(streamId, (await fixture.Bucket.GetStreamIdsAsync()).Single());

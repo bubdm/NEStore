@@ -6,21 +6,21 @@ using MongoDB.Driver;
 
 namespace NEStore.MongoDb
 {
-	public class MongoDbBucket : IBucket
+	public class MongoDbBucket<T> : IBucket<T>
 	{
 		private bool _indexesEnsured;
-		private readonly MongoDbEventStore _eventStore;
-		public IMongoCollection<CommitData> Collection { get; }
+		private readonly MongoDbEventStore<T> _eventStore;
+		public IMongoCollection<CommitData<T>> Collection { get; }
 		public string BucketName { get; }
 
-		public MongoDbBucket(MongoDbEventStore eventStore, string bucketName)
+		public MongoDbBucket(MongoDbEventStore<T> eventStore, string bucketName)
 		{
 			_eventStore = eventStore;
 			Collection = eventStore.CollectionFromBucket(bucketName);
 			BucketName = bucketName;
 		}
 
-		public async Task<WriteResult> WriteAsync(Guid streamId, int expectedStreamRevision, IEnumerable<object> events)
+		public async Task<WriteResult<T>> WriteAsync(Guid streamId, int expectedStreamRevision, IEnumerable<T> events)
 		{
 			if (expectedStreamRevision < 0)
 				throw new ArgumentOutOfRangeException(nameof(expectedStreamRevision));
@@ -62,14 +62,14 @@ namespace NEStore.MongoDb
 
 			var dispatchTask = DispatchCommitAsync(commit);
 
-			return new WriteResult(commit, dispatchTask);
+			return new WriteResult<T>(commit, dispatchTask);
 		}
 
 		public async Task DispatchUndispatchedAsync()
 		{
 			var commits = await Collection
 				.Find(p => p.Dispatched == false)
-				.Sort(Builders<CommitData>.Sort.Ascending(p => p.BucketRevision))
+				.Sort(Builders<CommitData<T>>.Sort.Ascending(p => p.BucketRevision))
 				.ToListAsync()
 				.ConfigureAwait(false);
 
@@ -84,7 +84,7 @@ namespace NEStore.MongoDb
 				.DeleteManyAsync(p => p.BucketRevision > bucketRevision);
 		}
 
-		public async Task<IEnumerable<object>> GetEventsAsync(Guid? streamId = null, long? fromBucketRevision = null, long? toBucketRevision = null)
+		public async Task<IEnumerable<T>> GetEventsAsync(Guid? streamId = null, long? fromBucketRevision = null, long? toBucketRevision = null)
 		{
 			var commits = await GetCommitsAsync(streamId, fromBucketRevision, toBucketRevision)
 				.ConfigureAwait(false);
@@ -92,7 +92,7 @@ namespace NEStore.MongoDb
 			return commits.SelectMany(c => c.Events);
 		}
 
-		public async Task<IEnumerable<object>> GetEventsForStreamAsync(Guid streamId, int? fromStreamRevision = null, int? toStreamRevision = null)
+		public async Task<IEnumerable<T>> GetEventsForStreamAsync(Guid streamId, int? fromStreamRevision = null, int? toStreamRevision = null)
 		{
 			if (fromStreamRevision <= 0)
 				throw new ArgumentOutOfRangeException(nameof(fromStreamRevision),
@@ -101,16 +101,16 @@ namespace NEStore.MongoDb
 			if (toStreamRevision <= 0)
 				throw new ArgumentOutOfRangeException(nameof(toStreamRevision), "Parameter must be greater than 0.");
 
-			var filter = Builders<CommitData>.Filter.Eq(p => p.StreamId, streamId);
+			var filter = Builders<CommitData<T>>.Filter.Eq(p => p.StreamId, streamId);
 
 			// Note: I cannot filter the start because I don't want to query mongo using non indexed fields
 			//  and I assume that for one stream we should not have so many events ...
 			if (toStreamRevision != null)
-				filter = filter & Builders<CommitData>.Filter.Lt(p => p.StreamRevisionStart, toStreamRevision.Value);
+				filter = filter & Builders<CommitData<T>>.Filter.Lt(p => p.StreamRevisionStart, toStreamRevision.Value);
 
 			var commits = await Collection
 				.Find(filter)
-				.Sort(Builders<CommitData>.Sort.Ascending(p => p.BucketRevision))
+				.Sort(Builders<CommitData<T>>.Sort.Ascending(p => p.BucketRevision))
 				.ToListAsync()
 				.ConfigureAwait(false);
 
@@ -135,7 +135,7 @@ namespace NEStore.MongoDb
 				.ConfigureAwait(false);
 		}
 
-		public async Task<IEnumerable<CommitData>> GetCommitsAsync(Guid? streamId = null, long? fromBucketRevision = null, long? toBucketRevision = null)
+		public async Task<IEnumerable<CommitData<T>>> GetCommitsAsync(Guid? streamId = null, long? fromBucketRevision = null, long? toBucketRevision = null)
 		{
 			if (fromBucketRevision <= 0)
 				throw new ArgumentOutOfRangeException(nameof(fromBucketRevision),
@@ -144,18 +144,18 @@ namespace NEStore.MongoDb
 			if (toBucketRevision <= 0)
 				throw new ArgumentOutOfRangeException(nameof(toBucketRevision), "Parameter must be greater than 0.");
 
-			var filter = Builders<CommitData>.Filter.Empty;
+			var filter = Builders<CommitData<T>>.Filter.Empty;
 			if (streamId != null)
-				filter = filter & Builders<CommitData>.Filter.Eq(p => p.StreamId, streamId.Value);
+				filter = filter & Builders<CommitData<T>>.Filter.Eq(p => p.StreamId, streamId.Value);
 
 			if (fromBucketRevision != null)
-				filter = filter & Builders<CommitData>.Filter.Gte(p => p.BucketRevision, fromBucketRevision.Value);
+				filter = filter & Builders<CommitData<T>>.Filter.Gte(p => p.BucketRevision, fromBucketRevision.Value);
 			if (toBucketRevision != null)
-				filter = filter & Builders<CommitData>.Filter.Lte(p => p.BucketRevision, toBucketRevision.Value);
+				filter = filter & Builders<CommitData<T>>.Filter.Lte(p => p.BucketRevision, toBucketRevision.Value);
 
 			var commits = await Collection
 				.Find(filter)
-				.Sort(Builders<CommitData>.Sort.Ascending(p => p.BucketRevision))
+				.Sort(Builders<CommitData<T>>.Sort.Ascending(p => p.BucketRevision))
 				.ToListAsync()
 				.ConfigureAwait(false);
 
@@ -165,8 +165,8 @@ namespace NEStore.MongoDb
 		public async Task<long> GetBucketRevisionAsync()
 		{
 			var result = await Collection
-				.Find(Builders<CommitData>.Filter.Empty)
-				.Sort(Builders<CommitData>.Sort.Descending(p => p.BucketRevision))
+				.Find(Builders<CommitData<T>>.Filter.Empty)
+				.Sort(Builders<CommitData<T>>.Sort.Descending(p => p.BucketRevision))
 				.FirstOrDefaultAsync()
 				.ConfigureAwait(false);
 
@@ -175,13 +175,13 @@ namespace NEStore.MongoDb
 
 		public async Task<int> GetStreamRevisionAsync(Guid streamId, long? atBucketRevision = null)
 		{
-			var filter = Builders<CommitData>.Filter.Eq(p => p.StreamId, streamId);
+			var filter = Builders<CommitData<T>>.Filter.Eq(p => p.StreamId, streamId);
 			if (atBucketRevision != null && atBucketRevision != long.MaxValue)
-				filter = filter & Builders<CommitData>.Filter.Lte(p => p.BucketRevision, atBucketRevision.Value);
+				filter = filter & Builders<CommitData<T>>.Filter.Lte(p => p.BucketRevision, atBucketRevision.Value);
 
 			var result = await Collection
 				.Find(filter)
-				.Sort(Builders<CommitData>.Sort.Descending(p => p.BucketRevision))
+				.Sort(Builders<CommitData<T>>.Sort.Descending(p => p.BucketRevision))
 				.FirstOrDefaultAsync()
 				.ConfigureAwait(false);
 
@@ -190,11 +190,11 @@ namespace NEStore.MongoDb
 
 		public async Task<IEnumerable<Guid>> GetStreamIdsAsync(long? fromBucketRevision = null, long? toBucketRevision = null)
 		{
-			var filter = Builders<CommitData>.Filter.Empty;
+			var filter = Builders<CommitData<T>>.Filter.Empty;
 			if (fromBucketRevision != null && fromBucketRevision != long.MinValue)
-				filter = filter & Builders<CommitData>.Filter.Gte(p => p.BucketRevision, fromBucketRevision.Value);
+				filter = filter & Builders<CommitData<T>>.Filter.Gte(p => p.BucketRevision, fromBucketRevision.Value);
 			if (toBucketRevision != null && toBucketRevision != long.MaxValue)
-				filter = filter & Builders<CommitData>.Filter.Lte(p => p.BucketRevision, toBucketRevision.Value);
+				filter = filter & Builders<CommitData<T>>.Filter.Lte(p => p.BucketRevision, toBucketRevision.Value);
 
 			var cursor = await Collection
 				.DistinctAsync(p => p.StreamId, filter)
@@ -206,9 +206,9 @@ namespace NEStore.MongoDb
 		}
 
 
-		private async Task<CommitData> CreateCommitAsync(Guid streamId, int expectedStreamRevision, object[] eventsArray)
+		private async Task<CommitData<T>> CreateCommitAsync(Guid streamId, int expectedStreamRevision, T[] eventsArray)
 		{
-			var commit = new CommitData
+			var commit = new CommitData<T>
 			{
 				BucketRevision = await GetBucketRevisionAsync().ConfigureAwait(false) + 1,
 				Dispatched = false,
@@ -230,7 +230,7 @@ namespace NEStore.MongoDb
 			_indexesEnsured = true;
 		}
 
-		private async Task DispatchCommitAsync(CommitData commit)
+		private async Task DispatchCommitAsync(CommitData<T> commit)
 		{
 			foreach (var e in commit.Events)
 			{
@@ -240,7 +240,7 @@ namespace NEStore.MongoDb
 
 			await Collection.UpdateOneAsync(
 				p => p.BucketRevision == commit.BucketRevision,
-				Builders<CommitData>.Update.Set(p => p.Dispatched, true))
+				Builders<CommitData<T>>.Update.Set(p => p.Dispatched, true))
 				.ConfigureAwait(false);
 		}
 

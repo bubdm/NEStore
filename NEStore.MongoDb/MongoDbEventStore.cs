@@ -8,10 +8,10 @@ using MongoDB.Driver;
 
 namespace NEStore.MongoDb
 {
-	public class MongoDbEventStore : IEventStore
+	public class MongoDbEventStore<T> : IEventStore<T>
 	{
-		private ConcurrentDictionary<string, MongoDbBucket> _buckets = new ConcurrentDictionary<string, MongoDbBucket>();
-		private IEventDispatcher[] _dispatchers = new IEventDispatcher[0];
+		private ConcurrentDictionary<string, MongoDbBucket<T>> _buckets = new ConcurrentDictionary<string, MongoDbBucket<T>>();
+		private IEventDispatcher<T>[] _dispatchers = new IEventDispatcher<T>[0];
 		public IMongoDatabase Database { get; }
 
 		/// <summary>
@@ -33,7 +33,7 @@ namespace NEStore.MongoDb
 
 		static MongoDbEventStore()
 		{
-			BsonClassMap.RegisterClassMap<CommitData>(cm =>
+			BsonClassMap.RegisterClassMap<CommitData<T>>(cm =>
 			{
 				cm.MapIdProperty(c => c.BucketRevision);
 				cm.AutoMap();
@@ -57,16 +57,16 @@ namespace NEStore.MongoDb
 		{
 			var collection = CollectionFromBucket(bucketName);
 
-			var builder = new IndexKeysDefinitionBuilder<CommitData>();
+			var builder = new IndexKeysDefinitionBuilder<CommitData<T>>();
 
 			await collection.Indexes.CreateManyAsync(new[]
 			{
 				// BucketRevision is _id (automatically indexed and unique)
-				new CreateIndexModel<CommitData>(builder
+				new CreateIndexModel<CommitData<T>>(builder
 					.Ascending(p => p.Dispatched), new CreateIndexOptions { Name = "Dispatched" }),
-				new CreateIndexModel<CommitData>(builder
+				new CreateIndexModel<CommitData<T>>(builder
 					.Ascending(p => p.StreamId), new CreateIndexOptions { Name = "StreamId" }),
-				new CreateIndexModel<CommitData>(builder
+				new CreateIndexModel<CommitData<T>>(builder
 					.Ascending(p => p.StreamId)
 					.Ascending(p => p.StreamRevisionStart), new CreateIndexOptions { Name = "StreamRevision", Unique = true })
 			}).ConfigureAwait(false);
@@ -78,27 +78,27 @@ namespace NEStore.MongoDb
 										.ConfigureAwait(false);
 		}
 
-		public IBucket Bucket(string bucketName)
+		public IBucket<T> Bucket(string bucketName)
 		{
 			return _buckets.GetOrAdd(
 				bucketName,
-				b => new MongoDbBucket(this, b)
+				b => new MongoDbBucket<T>(this, b)
 				);
 		}
 
-		public void RegisterDispatchers(params IEventDispatcher[] dispatchers)
+		public void RegisterDispatchers(params IEventDispatcher<T>[] dispatchers)
 		{
 			_dispatchers = dispatchers;
 		}
 
-		public IEnumerable<IEventDispatcher> GetDispatchers()
+		public IEnumerable<IEventDispatcher<T>> GetDispatchers()
 		{
 			return _dispatchers;
 		}
 
-		public IMongoCollection<CommitData> CollectionFromBucket(string bucketName)
+		public IMongoCollection<CommitData<T>> CollectionFromBucket(string bucketName)
 		{
-			return Database.GetCollection<CommitData>(CollectionNameFromBucket(bucketName))
+			return Database.GetCollection<CommitData<T>>(CollectionNameFromBucket(bucketName))
 				.WithWriteConcern(WriteConcern);
 		}
 

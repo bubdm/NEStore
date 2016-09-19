@@ -12,7 +12,7 @@ namespace SampleMovieCatalog
 	public static class Program
 	{
 		private static AggregateStore _store;
-		private static MongoDbEventStore _eventStore;
+		private static MongoDbEventStore<IEvent> _eventStore;
 		private static InMemoryMoviesProjection _moviesProjection;
 		private static InMemoryTotalMoviesProjection _totalMoviesProjection;
 
@@ -21,7 +21,7 @@ namespace SampleMovieCatalog
 		public static void Main()
 		{
 			RegisterAllEvents();
-			_eventStore = new MongoDbEventStore(ConfigurationManager.ConnectionStrings["mongoTest"].ConnectionString);
+			_eventStore = new MongoDbEventStore<IEvent>(ConfigurationManager.ConnectionStrings["mongoTest"].ConnectionString);
 			_eventStore.RegisterDispatchers(
 				_moviesProjection = new InMemoryMoviesProjection(),
 				_totalMoviesProjection = new InMemoryTotalMoviesProjection());

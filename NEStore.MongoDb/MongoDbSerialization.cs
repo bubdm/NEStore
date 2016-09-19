@@ -9,5 +9,18 @@ namespace NEStore.MongoDb
 		{
 			BsonClassMap.LookupClassMap(type);
 		}
+
+		public static void Register(Type type, string discriminatorName)
+		{
+			if (BsonClassMap.IsClassMapRegistered(type))
+				return;
+
+			var cm = new BsonClassMap(type);
+			cm.AutoMap();
+			cm.SetDiscriminatorIsRequired(true);
+			cm.SetDiscriminator(discriminatorName);
+
+			BsonClassMap.RegisterClassMap(cm);
+		}
 	}
 }

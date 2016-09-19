@@ -2,11 +2,11 @@
 
 namespace NEStore.Aggregates
 {
-	public abstract class ProjectionBase : IEventDispatcher
+	public abstract class ProjectionBase : IEventDispatcher<IEvent>
 	{
 		public abstract Task ClearAsync();
 
-		public Task DispatchAsync(object @event)
+		public Task DispatchAsync(IEvent @event)
 		{
 			var method = GetType()
 				.GetMethod("On",
