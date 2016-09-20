@@ -19,7 +19,7 @@ namespace NEStore.MongoDb.Tests
 			EventStore = CreateTarget();
 			Dispatcher = new Mock<IDispatcher<object>>();
 
-			Dispatcher.Setup(p => p.DispatchAsync(It.IsAny<object>()))
+			Dispatcher.Setup(p => p.DispatchAsync(It.IsAny<CommitData<object>>()))
 				.Returns<object>(e => Task.Delay(50));
 
 			EventStore.RegisterDispatchers(Dispatcher.Object);
