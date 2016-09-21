@@ -4,7 +4,6 @@ using System.Linq;
 using System.Runtime.Serialization;
 using System.Threading.Tasks;
 using MongoDB.Bson.Serialization.Conventions;
-using MongoDB.Bson.Serialization.Options;
 using Moq;
 using NEStore.MongoDb.Conventions;
 using Xunit;
@@ -35,7 +34,7 @@ namespace NEStore.MongoDb.Tests
 			{
 				var streamId = Guid.NewGuid();
 
-				var result = await fixture.Bucket.WriteAsync(streamId, 0, new[] {new {n1 = "v1"}});
+				var result = await fixture.Bucket.WriteAsync(streamId, 0, new[] { new { n1 = "v1" } });
 
 				Assert.NotNull(result);
 				Assert.NotNull(result.Commit);
@@ -46,7 +45,7 @@ namespace NEStore.MongoDb.Tests
 				Assert.Equal(1, (await fixture.Bucket.GetStreamRevisionAsync(streamId)));
 
 				var storedEvents = await fixture.Bucket.GetEventsAsync(streamId);
-				Assert.Equal("v1", ((dynamic) storedEvents.Single()).n1);
+				Assert.Equal("v1", ((dynamic)storedEvents.Single()).n1);
 
 				var commits = await fixture.Bucket.GetCommitsAsync(toBucketRevision: 1);
 				Assert.Equal(1, commits.Count());
@@ -60,12 +59,12 @@ namespace NEStore.MongoDb.Tests
 			{
 				var streamId = Guid.NewGuid();
 
-				var @event = new {n1 = "v1"};
+				var @event = new { n1 = "v1" };
 
-				var result = await fixture.Bucket.WriteAsync(streamId, 0, new[] {@event});
+				var result = await fixture.Bucket.WriteAsync(streamId, 0, new[] { @event });
 
 				await result.DispatchTask;
-				
+
 				fixture.Dispatcher.Verify(p => p.DispatchAsync(result.Commit), Times.Once());
 
 				Assert.Equal(false, await fixture.Bucket.HasUndispatchedCommitsAsync());
@@ -79,9 +78,9 @@ namespace NEStore.MongoDb.Tests
 			{
 				var streamId = Guid.NewGuid();
 
-				var @event = new {n1 = "v1"};
+				var @event = new { n1 = "v1" };
 
-				var result = await fixture.Bucket.WriteAndDispatchAsync(streamId, 0, new[] {@event});
+				var result = await fixture.Bucket.WriteAndDispatchAsync(streamId, 0, new[] { @event });
 
 				fixture.Dispatcher.Verify(p => p.DispatchAsync(result.Commit), Times.Once());
 
@@ -98,7 +97,7 @@ namespace NEStore.MongoDb.Tests
 
 				await
 					Assert.ThrowsAsync<ArgumentOutOfRangeException>(
-						() => fixture.Bucket.WriteAsync(streamId, -1, new[] {new {n1 = "v2"}}));
+						() => fixture.Bucket.WriteAsync(streamId, -1, new[] { new { n1 = "v2" } }));
 			}
 		}
 
@@ -109,11 +108,11 @@ namespace NEStore.MongoDb.Tests
 			{
 				var streamId = Guid.NewGuid();
 
-				await fixture.Bucket.WriteAndDispatchAsync(streamId, 0, new[] {new {n1 = "v1"}});
+				await fixture.Bucket.WriteAndDispatchAsync(streamId, 0, new[] { new { n1 = "v1" } });
 
 				await
 					Assert.ThrowsAsync<ArgumentOutOfRangeException>(
-						() => fixture.Bucket.WriteAsync(streamId, 2, new[] {new {n1 = "v2"}}));
+						() => fixture.Bucket.WriteAsync(streamId, 2, new[] { new { n1 = "v2" } }));
 			}
 		}
 
@@ -124,10 +123,10 @@ namespace NEStore.MongoDb.Tests
 			{
 				var streamId = Guid.NewGuid();
 
-				await fixture.Bucket.WriteAndDispatchAsync(streamId, 0, new[] {new {n1 = "v1"}});
+				await fixture.Bucket.WriteAndDispatchAsync(streamId, 0, new[] { new { n1 = "v1" } });
 
 				await
-					Assert.ThrowsAsync<ConcurrencyWriteException>(() => fixture.Bucket.WriteAsync(streamId, 0, new[] {new {n1 = "v2"}}));
+					Assert.ThrowsAsync<ConcurrencyWriteException>(() => fixture.Bucket.WriteAsync(streamId, 0, new[] { new { n1 = "v2" } }));
 			}
 		}
 
@@ -140,10 +139,10 @@ namespace NEStore.MongoDb.Tests
 
 				fixture.EventStore.CheckStreamRevisionBeforeWriting = false;
 
-				await fixture.Bucket.WriteAndDispatchAsync(streamId, 0, new[] {new {n1 = "v1"}});
+				await fixture.Bucket.WriteAndDispatchAsync(streamId, 0, new[] { new { n1 = "v1" } });
 
 				await
-					Assert.ThrowsAsync<ConcurrencyWriteException>(() => fixture.Bucket.WriteAsync(streamId, 0, new[] {new {n1 = "v2"}}));
+					Assert.ThrowsAsync<ConcurrencyWriteException>(() => fixture.Bucket.WriteAsync(streamId, 0, new[] { new { n1 = "v2" } }));
 			}
 		}
 
@@ -154,16 +153,16 @@ namespace NEStore.MongoDb.Tests
 			{
 				var streamId = Guid.NewGuid();
 
-				await fixture.Bucket.WriteAndDispatchAsync(streamId, 0, new[] {new {n1 = "v1"}, new {n1 = "v2"}, new {n1 = "v3"}});
+				await fixture.Bucket.WriteAndDispatchAsync(streamId, 0, new[] { new { n1 = "v1" }, new { n1 = "v2" }, new { n1 = "v3" } });
 
 				Assert.Equal(1, (await fixture.Bucket.GetBucketRevisionAsync()));
 				Assert.Equal(streamId, (await fixture.Bucket.GetStreamIdsAsync()).Single());
 				Assert.Equal(3, (await fixture.Bucket.GetStreamRevisionAsync(streamId)));
 
 				var storedEvents = (await fixture.Bucket.GetEventsAsync(streamId)).ToList();
-				Assert.Equal("v1", ((dynamic) storedEvents.ElementAt(0)).n1);
-				Assert.Equal("v2", ((dynamic) storedEvents.ElementAt(1)).n1);
-				Assert.Equal("v3", ((dynamic) storedEvents.ElementAt(2)).n1);
+				Assert.Equal("v1", ((dynamic)storedEvents.ElementAt(0)).n1);
+				Assert.Equal("v2", ((dynamic)storedEvents.ElementAt(1)).n1);
+				Assert.Equal("v3", ((dynamic)storedEvents.ElementAt(2)).n1);
 
 				var commits = await fixture.Bucket.GetCommitsAsync(toBucketRevision: 1);
 				Assert.Equal(1, commits.Count());
@@ -182,18 +181,18 @@ namespace NEStore.MongoDb.Tests
 			{
 				var streamId = Guid.NewGuid();
 
-				await fixture.Bucket.WriteAndDispatchAsync(streamId, 0, new[] {new {n1 = "v1"}});
-				await fixture.Bucket.WriteAndDispatchAsync(streamId, 1, new[] {new {n1 = "v2"}});
-				await fixture.Bucket.WriteAndDispatchAsync(streamId, 2, new[] {new {n1 = "v3"}});
+				await fixture.Bucket.WriteAndDispatchAsync(streamId, 0, new[] { new { n1 = "v1" } });
+				await fixture.Bucket.WriteAndDispatchAsync(streamId, 1, new[] { new { n1 = "v2" } });
+				await fixture.Bucket.WriteAndDispatchAsync(streamId, 2, new[] { new { n1 = "v3" } });
 
 				Assert.Equal(3, (await fixture.Bucket.GetBucketRevisionAsync()));
 				Assert.Equal(streamId, (await fixture.Bucket.GetStreamIdsAsync()).Single());
 				Assert.Equal(3, (await fixture.Bucket.GetStreamRevisionAsync(streamId)));
 
 				var storedEvents = (await fixture.Bucket.GetEventsAsync(streamId)).ToList();
-				Assert.Equal("v1", ((dynamic) storedEvents.ElementAt(0)).n1);
-				Assert.Equal("v2", ((dynamic) storedEvents.ElementAt(1)).n1);
-				Assert.Equal("v3", ((dynamic) storedEvents.ElementAt(2)).n1);
+				Assert.Equal("v1", ((dynamic)storedEvents.ElementAt(0)).n1);
+				Assert.Equal("v2", ((dynamic)storedEvents.ElementAt(1)).n1);
+				Assert.Equal("v3", ((dynamic)storedEvents.ElementAt(2)).n1);
 
 				var commits = await fixture.Bucket.GetCommitsAsync(toBucketRevision: 3);
 				Assert.Equal(3, commits.Count());
@@ -212,22 +211,22 @@ namespace NEStore.MongoDb.Tests
 			{
 				var streamId = Guid.NewGuid();
 
-				await fixture.Bucket.WriteAndDispatchAsync(streamId, 0, new[] {new {n1 = "v1"}, new {n1 = "v2"}, new {n1 = "v3"}});
-				await fixture.Bucket.WriteAndDispatchAsync(streamId, 3, new[] {new {n1 = "v4"}});
-				await fixture.Bucket.WriteAndDispatchAsync(streamId, 4, new[] {new {n1 = "v5"}, new {n1 = "v6"}, new {n1 = "v7"}});
+				await fixture.Bucket.WriteAndDispatchAsync(streamId, 0, new[] { new { n1 = "v1" }, new { n1 = "v2" }, new { n1 = "v3" } });
+				await fixture.Bucket.WriteAndDispatchAsync(streamId, 3, new[] { new { n1 = "v4" } });
+				await fixture.Bucket.WriteAndDispatchAsync(streamId, 4, new[] { new { n1 = "v5" }, new { n1 = "v6" }, new { n1 = "v7" } });
 
 				Assert.Equal(3, (await fixture.Bucket.GetBucketRevisionAsync()));
 				Assert.Equal(streamId, (await fixture.Bucket.GetStreamIdsAsync()).Single());
 				Assert.Equal(7, (await fixture.Bucket.GetStreamRevisionAsync(streamId)));
 
 				var storedEvents = (await fixture.Bucket.GetEventsAsync(streamId)).ToList();
-				Assert.Equal("v1", ((dynamic) storedEvents.ElementAt(0)).n1);
-				Assert.Equal("v2", ((dynamic) storedEvents.ElementAt(1)).n1);
-				Assert.Equal("v3", ((dynamic) storedEvents.ElementAt(2)).n1);
-				Assert.Equal("v4", ((dynamic) storedEvents.ElementAt(3)).n1);
-				Assert.Equal("v5", ((dynamic) storedEvents.ElementAt(4)).n1);
-				Assert.Equal("v6", ((dynamic) storedEvents.ElementAt(5)).n1);
-				Assert.Equal("v7", ((dynamic) storedEvents.ElementAt(6)).n1);
+				Assert.Equal("v1", ((dynamic)storedEvents.ElementAt(0)).n1);
+				Assert.Equal("v2", ((dynamic)storedEvents.ElementAt(1)).n1);
+				Assert.Equal("v3", ((dynamic)storedEvents.ElementAt(2)).n1);
+				Assert.Equal("v4", ((dynamic)storedEvents.ElementAt(3)).n1);
+				Assert.Equal("v5", ((dynamic)storedEvents.ElementAt(4)).n1);
+				Assert.Equal("v6", ((dynamic)storedEvents.ElementAt(5)).n1);
+				Assert.Equal("v7", ((dynamic)storedEvents.ElementAt(6)).n1);
 
 				var commits = await fixture.Bucket.GetCommitsAsync(toBucketRevision: 1);
 				Assert.Equal(1, commits.Count());
@@ -247,9 +246,9 @@ namespace NEStore.MongoDb.Tests
 				var streamId1 = Guid.NewGuid();
 				var streamId2 = Guid.NewGuid();
 
-				await fixture.Bucket.WriteAndDispatchAsync(streamId1, 0, new[] {new {n1 = "v1"}});
-				await fixture.Bucket.WriteAndDispatchAsync(streamId2, 0, new[] {new {n1 = "v1"}});
-				await fixture.Bucket.WriteAndDispatchAsync(streamId1, 1, new[] {new {n1 = "v2"}});
+				await fixture.Bucket.WriteAndDispatchAsync(streamId1, 0, new[] { new { n1 = "v1" } });
+				await fixture.Bucket.WriteAndDispatchAsync(streamId2, 0, new[] { new { n1 = "v1" } });
+				await fixture.Bucket.WriteAndDispatchAsync(streamId1, 1, new[] { new { n1 = "v2" } });
 
 				Assert.Equal(3, (await fixture.Bucket.GetBucketRevisionAsync()));
 				var streams = (await fixture.Bucket.GetStreamIdsAsync())
@@ -263,12 +262,12 @@ namespace NEStore.MongoDb.Tests
 
 				var storedEvents = (await fixture.Bucket.GetEventsAsync(streamId1)).ToList();
 				Assert.Equal(2, storedEvents.Count);
-				Assert.Equal("v1", ((dynamic) storedEvents.ElementAt(0)).n1);
-				Assert.Equal("v2", ((dynamic) storedEvents.ElementAt(1)).n1);
+				Assert.Equal("v1", ((dynamic)storedEvents.ElementAt(0)).n1);
+				Assert.Equal("v2", ((dynamic)storedEvents.ElementAt(1)).n1);
 
 				storedEvents = (await fixture.Bucket.GetEventsAsync(streamId2)).ToList();
 				Assert.Equal(1, storedEvents.Count);
-				Assert.Equal("v1", ((dynamic) storedEvents.ElementAt(0)).n1);
+				Assert.Equal("v1", ((dynamic)storedEvents.ElementAt(0)).n1);
 			}
 		}
 
@@ -279,8 +278,8 @@ namespace NEStore.MongoDb.Tests
 			{
 				var streamId = Guid.NewGuid();
 
-				await fixture.Bucket.WriteAndDispatchAsync(streamId, 0, new[] {new {n1 = "v1"}});
-				await fixture.Bucket.WriteAndDispatchAsync(streamId, 1, new[] {new {n1 = "v2"}});
+				await fixture.Bucket.WriteAndDispatchAsync(streamId, 0, new[] { new { n1 = "v1" } });
+				await fixture.Bucket.WriteAndDispatchAsync(streamId, 1, new[] { new { n1 = "v2" } });
 
 				Assert.Equal(2, (await fixture.Bucket.GetBucketRevisionAsync()));
 
@@ -290,7 +289,7 @@ namespace NEStore.MongoDb.Tests
 
 				var storedEvents = (await fixture.Bucket.GetEventsAsync(streamId)).ToList();
 				Assert.Equal(1, storedEvents.Count);
-				Assert.Equal("v1", ((dynamic) storedEvents.ElementAt(0)).n1);
+				Assert.Equal("v1", ((dynamic)storedEvents.ElementAt(0)).n1);
 			}
 		}
 
@@ -301,20 +300,20 @@ namespace NEStore.MongoDb.Tests
 			{
 				var streamId = Guid.NewGuid();
 
-				await fixture.Bucket.WriteAndDispatchAsync(streamId, 0, new[] {new {n1 = "v1"}});
-				await fixture.Bucket.WriteAndDispatchAsync(streamId, 1, new[] {new {n1 = "v2"}});
+				await fixture.Bucket.WriteAndDispatchAsync(streamId, 0, new[] { new { n1 = "v1" } });
+				await fixture.Bucket.WriteAndDispatchAsync(streamId, 1, new[] { new { n1 = "v2" } });
 
 				await fixture.Bucket.RollbackAsync(1);
 
-				await fixture.Bucket.WriteAndDispatchAsync(streamId, 1, new[] {new {n1 = "v3"}});
+				await fixture.Bucket.WriteAndDispatchAsync(streamId, 1, new[] { new { n1 = "v3" } });
 
 				var commits = (await fixture.Bucket.GetCommitsAsync(streamId)).ToList();
 				Assert.Equal(2, commits.Count);
 				Assert.Equal(1, commits.ElementAt(0).BucketRevision);
 				Assert.Equal(2, commits.ElementAt(1).BucketRevision);
 
-				Assert.Equal("v1", ((dynamic) commits.ElementAt(0).Events.First()).n1);
-				Assert.Equal("v3", ((dynamic) commits.ElementAt(1).Events.First()).n1);
+				Assert.Equal("v1", ((dynamic)commits.ElementAt(0).Events.First()).n1);
+				Assert.Equal("v3", ((dynamic)commits.ElementAt(1).Events.First()).n1);
 			}
 		}
 
@@ -325,12 +324,12 @@ namespace NEStore.MongoDb.Tests
 			{
 				var streamId = Guid.NewGuid();
 
-				var @event = new {n1 = "v1"};
+				var @event = new { n1 = "v1" };
 
 				fixture.Dispatcher.Setup(p => p.DispatchAsync(It.IsAny<CommitData<object>>()))
 					.Throws(new MyException("Some dispatch exception"));
 
-				var result = await fixture.Bucket.WriteAsync(streamId, 0, new[] {@event});
+				var result = await fixture.Bucket.WriteAsync(streamId, 0, new[] { @event });
 
 				fixture.Dispatcher.Verify(p => p.DispatchAsync(result.Commit), Times.Once());
 
@@ -352,10 +351,10 @@ namespace NEStore.MongoDb.Tests
 			using (var fixture = new MongoDbEventStoreFixture())
 			{
 				var streamId = Guid.NewGuid();
-				var @event = new {n1 = "v1"};
+				var @event = new { n1 = "v1" };
 				fixture.Dispatcher.Setup(p => p.DispatchAsync(It.IsAny<CommitData<object>>()))
 					.Throws(new MyException("Some dispatch exception"));
-				var result = await fixture.Bucket.WriteAsync(streamId, 0, new[] {@event});
+				var result = await fixture.Bucket.WriteAsync(streamId, 0, new[] { @event });
 
 				try
 				{
@@ -368,10 +367,10 @@ namespace NEStore.MongoDb.Tests
 				Assert.Equal(true, await fixture.Bucket.HasUndispatchedCommitsAsync());
 
 				var streamId2 = Guid.NewGuid();
-				var @event2 = new {n1 = "v1"};
+				var @event2 = new { n1 = "v1" };
 
 				await
-					Assert.ThrowsAsync<UndispatchedEventsFoundException>(() => fixture.Bucket.WriteAsync(streamId2, 0, new[] {@event2}));
+					Assert.ThrowsAsync<UndispatchedEventsFoundException>(() => fixture.Bucket.WriteAsync(streamId2, 0, new[] { @event2 }));
 			}
 		}
 
@@ -381,10 +380,10 @@ namespace NEStore.MongoDb.Tests
 			using (var fixture = new MongoDbEventStoreFixture())
 			{
 				var streamId = Guid.NewGuid();
-				var @event = new {n1 = "v1"};
+				var @event = new { n1 = "v1" };
 				fixture.Dispatcher.Setup(p => p.DispatchAsync(It.IsAny<CommitData<object>>()))
 					.Throws(new MyException("Some dispatch exception"));
-				var result = await fixture.Bucket.WriteAsync(streamId, 0, new[] {@event});
+				var result = await fixture.Bucket.WriteAsync(streamId, 0, new[] { @event });
 
 				try
 				{
@@ -399,9 +398,9 @@ namespace NEStore.MongoDb.Tests
 				using (var fixtureBucket2 = new MongoDbEventStoreFixture())
 				{
 					var streamId2 = Guid.NewGuid();
-					var @event2 = new {n1 = "v1"};
+					var @event2 = new { n1 = "v1" };
 
-					await fixtureBucket2.Bucket.WriteAndDispatchAsync(streamId2, 0, new[] {@event2});
+					await fixtureBucket2.Bucket.WriteAndDispatchAsync(streamId2, 0, new[] { @event2 });
 
 					Assert.Equal(false, await fixtureBucket2.Bucket.HasUndispatchedCommitsAsync());
 				}
@@ -416,12 +415,12 @@ namespace NEStore.MongoDb.Tests
 			{
 				var streamId = Guid.NewGuid();
 
-				var @event = new {n1 = "v1"};
+				var @event = new { n1 = "v1" };
 
 				// Create an undispatched event
 				fixture.Dispatcher.Setup(p => p.DispatchAsync(It.IsAny<CommitData<object>>()))
 					.Throws(new MyException("Some dispatch exception"));
-				var result = await fixture.Bucket.WriteAsync(streamId, 0, new[] {@event});
+				var result = await fixture.Bucket.WriteAsync(streamId, 0, new[] { @event });
 				try
 				{
 					await result.DispatchTask;
@@ -448,12 +447,12 @@ namespace NEStore.MongoDb.Tests
 			{
 				var streamId = Guid.NewGuid();
 
-				var @event = new {n1 = "v1"};
+				var @event = new { n1 = "v1" };
 
 				// Create an undispatched event
 				fixture.Dispatcher.Setup(p => p.DispatchAsync(It.IsAny<CommitData<object>>()))
 					.Throws(new MyException("Some dispatch exception"));
-				var result = await fixture.Bucket.WriteAsync(streamId, 0, new[] {@event});
+				var result = await fixture.Bucket.WriteAsync(streamId, 0, new[] { @event });
 				try
 				{
 					await result.DispatchTask;
@@ -464,7 +463,7 @@ namespace NEStore.MongoDb.Tests
 				Assert.Equal(true, await fixture.Bucket.HasUndispatchedCommitsAsync());
 
 				await
-					Assert.ThrowsAsync<UndispatchedEventsFoundException>(() => fixture.Bucket.WriteAsync(streamId, 1, new[] {@event}));
+					Assert.ThrowsAsync<UndispatchedEventsFoundException>(() => fixture.Bucket.WriteAsync(streamId, 1, new[] { @event }));
 			}
 		}
 
@@ -477,9 +476,9 @@ namespace NEStore.MongoDb.Tests
 				var streamId2 = Guid.NewGuid();
 				var streamId3 = Guid.NewGuid();
 
-				await fixture.Bucket.WriteAndDispatchAsync(streamId, 0, new[] {new {n1 = "v1"}, new {n1 = "v2"}, new {n1 = "v3"}});
-				await fixture.Bucket.WriteAndDispatchAsync(streamId2, 0, new[] {new {n1 = "v4"}});
-				await fixture.Bucket.WriteAndDispatchAsync(streamId3, 0, new[] {new {n1 = "v5"}, new {n1 = "v6"}, new {n1 = "v7"}});
+				await fixture.Bucket.WriteAndDispatchAsync(streamId, 0, new[] { new { n1 = "v1" }, new { n1 = "v2" }, new { n1 = "v3" } });
+				await fixture.Bucket.WriteAndDispatchAsync(streamId2, 0, new[] { new { n1 = "v4" } });
+				await fixture.Bucket.WriteAndDispatchAsync(streamId3, 0, new[] { new { n1 = "v5" }, new { n1 = "v6" }, new { n1 = "v7" } });
 
 				Assert.Equal(false, await fixture.Bucket.HasUndispatchedCommitsAsync());
 
@@ -488,13 +487,13 @@ namespace NEStore.MongoDb.Tests
 
 				Assert.Equal(7, allEvents.Count());
 
-				Assert.Equal("v1", ((dynamic) allEvents.ElementAt(0)).n1);
-				Assert.Equal("v2", ((dynamic) allEvents.ElementAt(1)).n1);
-				Assert.Equal("v3", ((dynamic) allEvents.ElementAt(2)).n1);
-				Assert.Equal("v4", ((dynamic) allEvents.ElementAt(3)).n1);
-				Assert.Equal("v5", ((dynamic) allEvents.ElementAt(4)).n1);
-				Assert.Equal("v6", ((dynamic) allEvents.ElementAt(5)).n1);
-				Assert.Equal("v7", ((dynamic) allEvents.ElementAt(6)).n1);
+				Assert.Equal("v1", ((dynamic)allEvents.ElementAt(0)).n1);
+				Assert.Equal("v2", ((dynamic)allEvents.ElementAt(1)).n1);
+				Assert.Equal("v3", ((dynamic)allEvents.ElementAt(2)).n1);
+				Assert.Equal("v4", ((dynamic)allEvents.ElementAt(3)).n1);
+				Assert.Equal("v5", ((dynamic)allEvents.ElementAt(4)).n1);
+				Assert.Equal("v6", ((dynamic)allEvents.ElementAt(5)).n1);
+				Assert.Equal("v7", ((dynamic)allEvents.ElementAt(6)).n1);
 			}
 		}
 
@@ -505,9 +504,9 @@ namespace NEStore.MongoDb.Tests
 			{
 				var streamId = Guid.NewGuid();
 
-				await fixture.Bucket.WriteAndDispatchAsync(streamId, 0, new[] {new {n1 = "v1"}, new {n1 = "v2"}, new {n1 = "v3"}});
-				await fixture.Bucket.WriteAndDispatchAsync(streamId, 3, new[] {new {n1 = "v4"}});
-				await fixture.Bucket.WriteAndDispatchAsync(streamId, 4, new[] {new {n1 = "v5"}, new {n1 = "v6"}, new {n1 = "v7"}});
+				await fixture.Bucket.WriteAndDispatchAsync(streamId, 0, new[] { new { n1 = "v1" }, new { n1 = "v2" }, new { n1 = "v3" } });
+				await fixture.Bucket.WriteAndDispatchAsync(streamId, 3, new[] { new { n1 = "v4" } });
+				await fixture.Bucket.WriteAndDispatchAsync(streamId, 4, new[] { new { n1 = "v5" }, new { n1 = "v6" }, new { n1 = "v7" } });
 
 				await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => fixture.Bucket.GetEventsAsync(fromBucketRevision: 0));
 				await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => fixture.Bucket.GetEventsAsync(fromBucketRevision: -1));
@@ -523,11 +522,11 @@ namespace NEStore.MongoDb.Tests
 			{
 				var streamId = Guid.NewGuid();
 
-				var e1 = new {n1 = "v1"};
-				var e2 = new {n1 = "v2"};
-				var e3 = new {n1 = "v3"};
+				var e1 = new { n1 = "v1" };
+				var e2 = new { n1 = "v2" };
+				var e3 = new { n1 = "v3" };
 
-				await fixture.Bucket.WriteAndDispatchAsync(streamId, 0, new[] {e1, e2, e3});
+				await fixture.Bucket.WriteAndDispatchAsync(streamId, 0, new[] { e1, e2, e3 });
 
 				await
 					Assert.ThrowsAsync<ArgumentOutOfRangeException>(
@@ -559,51 +558,51 @@ namespace NEStore.MongoDb.Tests
 				var e6 = new FakeEvent(6);
 				var e7 = new FakeEvent(7);
 
-				await fixture.Bucket.WriteAndDispatchAsync(streamId, 0, new[] {e1, e2, e3});
-				await fixture.Bucket.WriteAndDispatchAsync(streamId, 3, new[] {e4});
-				await fixture.Bucket.WriteAndDispatchAsync(streamId, 4, new[] {e5, e6, e7});
+				await fixture.Bucket.WriteAndDispatchAsync(streamId, 0, new[] { e1, e2, e3 });
+				await fixture.Bucket.WriteAndDispatchAsync(streamId, 3, new[] { e4 });
+				await fixture.Bucket.WriteAndDispatchAsync(streamId, 4, new[] { e5, e6, e7 });
 
 				var allEvents = (await fixture.Bucket.GetEventsForStreamAsync(streamId));
-				Assert.Equal(new[] {e1, e2, e3, e4, e5, e6, e7}.ToList<object>(), allEvents);
+				Assert.Equal(new[] { e1, e2, e3, e4, e5, e6, e7 }.ToList<object>(), allEvents);
 
 				allEvents = (await fixture.Bucket.GetEventsForStreamAsync(streamId, 1, 7));
-				Assert.Equal(new[] {e1, e2, e3, e4, e5, e6, e7}.ToList<object>(), allEvents);
+				Assert.Equal(new[] { e1, e2, e3, e4, e5, e6, e7 }.ToList<object>(), allEvents);
 
 				allEvents = (await fixture.Bucket.GetEventsForStreamAsync(streamId, toStreamRevision: 8465));
-				Assert.Equal(new[] {e1, e2, e3, e4, e5, e6, e7}.ToList<object>(), allEvents);
+				Assert.Equal(new[] { e1, e2, e3, e4, e5, e6, e7 }.ToList<object>(), allEvents);
 
-				allEvents = (await fixture.Bucket.GetEventsForStreamAsync(streamId, fromStreamRevision: 1));
-				Assert.Equal(new[] {e1, e2, e3, e4, e5, e6, e7}.ToList<object>(), allEvents);
+				allEvents = (await fixture.Bucket.GetEventsForStreamAsync(streamId));
+				Assert.Equal(new[] { e1, e2, e3, e4, e5, e6, e7 }.ToList<object>(), allEvents);
 
 				allEvents = (await fixture.Bucket.GetEventsForStreamAsync(streamId, 1, 8465));
-				Assert.Equal(new[] {e1, e2, e3, e4, e5, e6, e7}.ToList<object>(), allEvents);
+				Assert.Equal(new[] { e1, e2, e3, e4, e5, e6, e7 }.ToList<object>(), allEvents);
 
 				allEvents = (await fixture.Bucket.GetEventsForStreamAsync(streamId, 1, 3));
-				Assert.Equal(new[] {e1, e2, e3}.ToList<object>(), allEvents);
+				Assert.Equal(new[] { e1, e2, e3 }.ToList<object>(), allEvents);
 
 				allEvents = (await fixture.Bucket.GetEventsForStreamAsync(streamId, 1, 4));
-				Assert.Equal(new[] {e1, e2, e3, e4}.ToList<object>(), allEvents);
+				Assert.Equal(new[] { e1, e2, e3, e4 }.ToList<object>(), allEvents);
 
 				allEvents = (await fixture.Bucket.GetEventsForStreamAsync(streamId, 1, 2));
-				Assert.Equal(new[] {e1, e2}.ToList<object>(), allEvents);
+				Assert.Equal(new[] { e1, e2 }.ToList<object>(), allEvents);
 
 				allEvents = (await fixture.Bucket.GetEventsForStreamAsync(streamId, 2, 2));
-				Assert.Equal(new[] {e2}.ToList<object>(), allEvents);
+				Assert.Equal(new[] { e2 }.ToList<object>(), allEvents);
 
 				allEvents = (await fixture.Bucket.GetEventsForStreamAsync(streamId, 7, 7));
-				Assert.Equal(new[] {e7}.ToList<object>(), allEvents);
+				Assert.Equal(new[] { e7 }.ToList<object>(), allEvents);
 
 				allEvents = (await fixture.Bucket.GetEventsForStreamAsync(streamId, 7, 8));
-				Assert.Equal(new[] {e7}.ToList<object>(), allEvents);
+				Assert.Equal(new[] { e7 }.ToList<object>(), allEvents);
 
 				allEvents = (await fixture.Bucket.GetEventsForStreamAsync(streamId, 7, 999));
-				Assert.Equal(new[] {e7}.ToList<object>(), allEvents);
+				Assert.Equal(new[] { e7 }.ToList<object>(), allEvents);
 
 				allEvents = (await fixture.Bucket.GetEventsForStreamAsync(streamId, 1, 5));
-				Assert.Equal(new[] {e1, e2, e3, e4, e5}.ToList<object>(), allEvents);
+				Assert.Equal(new[] { e1, e2, e3, e4, e5 }.ToList<object>(), allEvents);
 
 				allEvents = (await fixture.Bucket.GetEventsForStreamAsync(streamId, 2, 5));
-				Assert.Equal(new[] {e2, e3, e4, e5}.ToList<object>(), allEvents);
+				Assert.Equal(new[] { e2, e3, e4, e5 }.ToList<object>(), allEvents);
 
 				allEvents = (await fixture.Bucket.GetEventsForStreamAsync(streamId, 8, 8));
 				Assert.Equal(0, allEvents.Count());
@@ -623,7 +622,7 @@ namespace NEStore.MongoDb.Tests
 					var streamId = Guid.NewGuid();
 					await
 						fixture.Bucket.WriteAndDispatchAsync(streamId, 0,
-							new[] {new {n1 = $"v{i}.1"}, new {n1 = $"v{i}.2"}});
+							new[] { new { n1 = $"v{i}.1" }, new { n1 = $"v{i}.2" } });
 				}
 
 				var allEvents = await fixture.Bucket.GetEventsAsync();
@@ -631,38 +630,38 @@ namespace NEStore.MongoDb.Tests
 
 				var pagedEvents = (await fixture.Bucket.GetEventsAsync(fromBucketRevision: 1, toBucketRevision: 1)).ToList();
 				Assert.Equal(2, pagedEvents.Count);
-				Assert.Equal("v1.1", ((dynamic) pagedEvents.First()).n1);
-				Assert.Equal("v1.2", ((dynamic) pagedEvents.Last()).n1);
+				Assert.Equal("v1.1", ((dynamic)pagedEvents.First()).n1);
+				Assert.Equal("v1.2", ((dynamic)pagedEvents.Last()).n1);
 
 				pagedEvents = (await fixture.Bucket.GetEventsAsync(fromBucketRevision: 1, toBucketRevision: 2)).ToList();
 				Assert.Equal(4, pagedEvents.Count);
-				Assert.Equal("v1.1", ((dynamic) pagedEvents.First()).n1);
-				Assert.Equal("v2.2", ((dynamic) pagedEvents.Last()).n1);
+				Assert.Equal("v1.1", ((dynamic)pagedEvents.First()).n1);
+				Assert.Equal("v2.2", ((dynamic)pagedEvents.Last()).n1);
 
 				pagedEvents = (await fixture.Bucket.GetEventsAsync(fromBucketRevision: 2, toBucketRevision: 2)).ToList();
 				Assert.Equal(2, pagedEvents.Count);
-				Assert.Equal("v2.1", ((dynamic) pagedEvents.First()).n1);
-				Assert.Equal("v2.2", ((dynamic) pagedEvents.Last()).n1);
+				Assert.Equal("v2.1", ((dynamic)pagedEvents.First()).n1);
+				Assert.Equal("v2.2", ((dynamic)pagedEvents.Last()).n1);
 
 				pagedEvents = (await fixture.Bucket.GetEventsAsync(fromBucketRevision: 20, toBucketRevision: 20)).ToList();
 				Assert.Equal(2, pagedEvents.Count());
-				Assert.Equal("v20.1", ((dynamic) pagedEvents.First()).n1);
-				Assert.Equal("v20.2", ((dynamic) pagedEvents.Last()).n1);
+				Assert.Equal("v20.1", ((dynamic)pagedEvents.First()).n1);
+				Assert.Equal("v20.2", ((dynamic)pagedEvents.Last()).n1);
 
 				pagedEvents = (await fixture.Bucket.GetEventsAsync(fromBucketRevision: 20, toBucketRevision: 999)).ToList();
 				Assert.Equal(2, pagedEvents.Count());
-				Assert.Equal("v20.1", ((dynamic) pagedEvents.First()).n1);
-				Assert.Equal("v20.2", ((dynamic) pagedEvents.Last()).n1);
+				Assert.Equal("v20.1", ((dynamic)pagedEvents.First()).n1);
+				Assert.Equal("v20.2", ((dynamic)pagedEvents.Last()).n1);
 
 				pagedEvents = (await fixture.Bucket.GetEventsAsync(fromBucketRevision: 10, toBucketRevision: 15)).ToList();
 				Assert.Equal(12, pagedEvents.Count());
-				Assert.Equal("v10.1", ((dynamic) pagedEvents.First()).n1);
-				Assert.Equal("v15.2", ((dynamic) pagedEvents.Last()).n1);
+				Assert.Equal("v10.1", ((dynamic)pagedEvents.First()).n1);
+				Assert.Equal("v15.2", ((dynamic)pagedEvents.Last()).n1);
 
 				pagedEvents = (await fixture.Bucket.GetEventsAsync(fromBucketRevision: 10, toBucketRevision: 30)).ToList();
 				Assert.Equal(22, pagedEvents.Count());
-				Assert.Equal("v10.1", ((dynamic) pagedEvents.First()).n1);
-				Assert.Equal("v20.2", ((dynamic) pagedEvents.Last()).n1);
+				Assert.Equal("v10.1", ((dynamic)pagedEvents.First()).n1);
+				Assert.Equal("v20.2", ((dynamic)pagedEvents.Last()).n1);
 			}
 		}
 
@@ -676,7 +675,7 @@ namespace NEStore.MongoDb.Tests
 					var streamId = Guid.NewGuid();
 					await
 						fixture.Bucket.WriteAndDispatchAsync(streamId, 0,
-							new[] {new {n1 = $"v{i}.1"}, new {n1 = $"v{i}.2"}});
+							new[] { new { n1 = $"v{i}.1" }, new { n1 = $"v{i}.2" } });
 				}
 
 				var allCommits = await fixture.Bucket.GetCommitsAsync();
@@ -700,32 +699,79 @@ namespace NEStore.MongoDb.Tests
 			}
 		}
 
-
 		[Fact]
 		public async Task Dictonary_with_non_string_keys_should_be_serialized_without_BsonSerializationException()
 		{
 			ConventionRegistry.Register(
-			"SafeDictionaryKeyConvention",
+			nameof(SafeDictionaryKeyConvention),
 			new ConventionPack { new SafeDictionaryKeyConvention() },
 			_ => true);
-			
+
+			MongoDbSerialization.Register(typeof(EventWithDictionary<DateTime>));
+			MongoDbSerialization.Register(typeof(EventWithDictionary<int>));
+
 			using (var fixture = new MongoDbEventStoreFixture())
 			{
 				var streamId = Guid.NewGuid();
-				var @event = new ToSerialize<DateTime>();
+				var @event = new EventWithDictionary<DateTime>();
 				@event.Add(DateTime.Now, 2);
 				@event.Add(DateTime.Today, "test");
-				await fixture.Bucket.WriteAndDispatchAsync(streamId, 0, new[] {@event});
+				await fixture.Bucket.WriteAndDispatchAsync(streamId, 0, new[] { @event });
+				var events = await fixture.Bucket.GetEventsAsync(streamId);
+				Assert.Equal("test", ((EventWithDictionary<DateTime>)events.ElementAt(0)).ToBeSerialized[DateTime.Today.ToUniversalTime()]); // why I need this conversion?
 
 
 				var streamId2 = Guid.NewGuid();
-				var @event2 = new ToSerialize<int>();
+				var @event2 = new EventWithDictionary<int>();
 				@event2.Add(100, 2);
 				@event2.Add(200, "test");
 				await fixture.Bucket.WriteAndDispatchAsync(streamId2, 0, new[] { @event2 });
+				var events2 = await fixture.Bucket.GetEventsAsync(streamId2);
+				Assert.Equal("test", ((EventWithDictionary<int>)events2.ElementAt(0)).ToBeSerialized[200]);
 			}
 		}
 
+		[Fact]
+		public async Task Events_with_readonly_properties_are_serialized()
+		{
+			ConventionRegistry.Register(
+			nameof(ImmutablePocoConvention),
+			new ConventionPack { new ImmutablePocoConvention() },
+			_ => true);
+
+			using (var fixture = new MongoDbEventStoreFixture<EventWithReadOnlyProperties>())
+			{
+				var streamId = Guid.NewGuid();
+				var @event = new EventWithReadOnlyProperties("test1");
+				await fixture.Bucket.WriteAndDispatchAsync(streamId, 0, new[] { @event });
+
+				var events = await fixture.Bucket.GetEventsAsync(streamId);
+				Assert.Equal("test1", events.ElementAt(0).Name);
+			}
+		}
+
+		[Fact]
+		public async Task Events_with_readonly_properties_and_multiple_constructors_are_serialized()
+		{
+			ConventionRegistry.Register(
+			nameof(ImmutablePocoConvention),
+			new ConventionPack { new ImmutablePocoConvention() },
+			_ => true);
+
+			using (var fixture = new MongoDbEventStoreFixture<ImmutablePocoSample>())
+			{
+				var streamId = Guid.NewGuid();
+				var @event1 = new ImmutablePocoSample("Icardi");
+				var @event2 = new ImmutablePocoSample("Davide", "Icardi");
+				await fixture.Bucket.WriteAndDispatchAsync(streamId, 0, new[] { @event1, @event2 });
+
+				var events = (await fixture.Bucket.GetEventsAsync(streamId)).ToList();
+				Assert.Equal(null, events.ElementAt(0).FirstName);
+				Assert.Equal("Icardi", events.ElementAt(0).LastName);
+				Assert.Equal("Davide", events.ElementAt(1).FirstName);
+				Assert.Equal("Icardi", events.ElementAt(1).LastName);
+			}
+		}
 
 		[Serializable]
 		private class MyException : Exception
@@ -769,23 +815,51 @@ namespace NEStore.MongoDb.Tests
 				if (obj == null || GetType() != obj.GetType())
 					return false;
 
-				return V == ((FakeEvent) obj).V;
+				return V == ((FakeEvent)obj).V;
 			}
 		}
-		
 
-		internal class ToSerialize<T>
+
+		internal class EventWithDictionary<T>
 		{
 			public IDictionary<T, object> ToBeSerialized { get; set; }
 
-			public ToSerialize()
+			public EventWithDictionary()
 			{
 				ToBeSerialized = new Dictionary<T, object>();
 			}
 
 			public void Add(T key, object value)
 			{
-				ToBeSerialized.Add(key,value);
+				ToBeSerialized.Add(key, value);
+			}
+		}
+
+		public class EventWithReadOnlyProperties
+		{
+			public string Name { get; }
+
+			public EventWithReadOnlyProperties(string name)
+			{
+				Name = name;
+			}
+		}
+
+		public class ImmutablePocoSample
+		{
+			public string FirstName { get; }
+			public string LastName { get; }
+			public string FullName => FirstName + LastName;
+
+			public ImmutablePocoSample(string lastName)
+			{
+				LastName = lastName;
+			}
+
+			public ImmutablePocoSample(string firstName, string lastName)
+			{
+				FirstName = firstName;
+				LastName = lastName;
 			}
 		}
 	}

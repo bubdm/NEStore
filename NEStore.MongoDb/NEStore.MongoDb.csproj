@@ -53,6 +53,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Conventions\ImmutablePocoConvention.cs" />
     <Compile Include="Conventions\SafeDictionaryKeyConvention.cs" />
     <Compile Include="MongoDbSerialization.cs" />
     <Compile Include="MongoDbBucket.cs" />

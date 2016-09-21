@@ -41,6 +41,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="BucketExtensions.cs" />
     <Compile Include="CommitData.cs" />
     <Compile Include="ConcurrencyWriteException.cs" />
     <Compile Include="IBucket.cs" />

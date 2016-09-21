@@ -6,24 +6,28 @@ using Moq;
 
 namespace NEStore.MongoDb.Tests
 {
-	public class MongoDbEventStoreFixture : IDisposable
+	public class MongoDbEventStoreFixture : MongoDbEventStoreFixture<object>
+	{
+	}
+
+	public class MongoDbEventStoreFixture<T> : IDisposable
 	{
 		public string BucketName { get; }
-		public MongoDbEventStore<object> EventStore { get; }
-		public MongoDbBucket<object> Bucket { get; }
-		public Mock<IDispatcher<object>> Dispatcher { get; }
+		public MongoDbEventStore<T> EventStore { get; }
+		public MongoDbBucket<T> Bucket { get; }
+		public Mock<IDispatcher<T>> Dispatcher { get; }
 
 		public MongoDbEventStoreFixture()
 		{
 			BucketName = RandomString(10);
 			EventStore = CreateTarget();
-			Dispatcher = new Mock<IDispatcher<object>>();
+			Dispatcher = new Mock<IDispatcher<T>>();
 
-			Dispatcher.Setup(p => p.DispatchAsync(It.IsAny<CommitData<object>>()))
-				.Returns<object>(e => Task.Delay(50));
+			Dispatcher.Setup(p => p.DispatchAsync(It.IsAny<CommitData<T>>()))
+				.Returns<CommitData<T>>(e => Task.Delay(50));
 
 			EventStore.RegisterDispatchers(Dispatcher.Object);
-			Bucket = EventStore.Bucket(BucketName) as MongoDbBucket<object>;
+			Bucket = EventStore.Bucket(BucketName) as MongoDbBucket<T>;
 		}
 
 		public void Dispose()
@@ -36,11 +40,11 @@ namespace NEStore.MongoDb.Tests
 			EventStore.DeleteBucketAsync(BucketName).Wait();
 		}
 
-		private static MongoDbEventStore<object> CreateTarget()
+		private static MongoDbEventStore<T> CreateTarget()
 		{
 			var cns = ConfigurationManager.ConnectionStrings["mongoTest"].ConnectionString;
 
-			return new MongoDbEventStore<object>(cns);
+			return new MongoDbEventStore<T>(cns);
 		}
 
 		private static string RandomString(int length)

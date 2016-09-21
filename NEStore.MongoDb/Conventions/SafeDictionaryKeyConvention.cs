@@ -1,13 +1,14 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using MongoDB.Bson.Serialization;
 using MongoDB.Bson.Serialization.Conventions;
 using MongoDB.Bson.Serialization.Options;
 
 namespace NEStore.MongoDb.Conventions
 {
+	/// <summary>
+	/// A convention that allow to specify a different dictionary representation for non string key dictionaries
+	/// </summary>
 	public class SafeDictionaryKeyConvention : ConventionBase, IMemberMapConvention
 	{
 		private readonly DictionaryRepresentation _dictionaryRepresentation;
