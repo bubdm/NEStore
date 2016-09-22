@@ -1,21 +1,27 @@
-﻿using System.Threading.Tasks;
+﻿using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 using NEStore.Aggregates;
 
 namespace SampleMovieCatalog
 {
 	public class InMemoryTotalMoviesProjection : ProjectionBase
 	{
-		public int TotalMovies { get; set; }
+		public int TotalMovies => Movies.Count;
+
+		public HashSet<Guid> Movies { get; set; } = new HashSet<Guid>();
 
 		// ReSharper disable UnusedMember.Local
-		// ReSharper disable UnusedParameter.Local
-		private void On(Movie.Created @event) => TotalMovies++;
-		// ReSharper restore UnusedParameter.Local
+		private void On(Movie.Created @event)
+		{
+			if (!Movies.Contains(@event.ObjectId))
+				Movies.Add(@event.ObjectId);
+		}
 		// ReSharper restore UnusedMember.Local
 
 		public override Task ClearAsync()
 		{
-			TotalMovies = 0;
+			Movies.Clear();
 			return Task.FromResult(false);
 		}
 	}
