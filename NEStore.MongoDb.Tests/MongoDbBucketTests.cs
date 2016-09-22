@@ -57,6 +57,7 @@ namespace NEStore.MongoDb.Tests
 		{
 			using (var fixture = new MongoDbEventStoreFixture())
 			{
+				var bucket = fixture.BucketName;
 				var streamId = Guid.NewGuid();
 
 				var @event = new { n1 = "v1" };
@@ -65,7 +66,7 @@ namespace NEStore.MongoDb.Tests
 
 				await result.DispatchTask;
 
-				fixture.Dispatcher.Verify(p => p.DispatchAsync(result.Commit), Times.Once());
+				fixture.Dispatcher.Verify(p => p.DispatchAsync(bucket, result.Commit), Times.Once());
 
 				Assert.Equal(false, await fixture.Bucket.HasUndispatchedCommitsAsync());
 			}
@@ -76,13 +77,14 @@ namespace NEStore.MongoDb.Tests
 		{
 			using (var fixture = new MongoDbEventStoreFixture())
 			{
+				var bucket = fixture.BucketName;
 				var streamId = Guid.NewGuid();
 
 				var @event = new { n1 = "v1" };
 
 				var result = await fixture.Bucket.WriteAndDispatchAsync(streamId, 0, new[] { @event });
 
-				fixture.Dispatcher.Verify(p => p.DispatchAsync(result.Commit), Times.Once());
+				fixture.Dispatcher.Verify(p => p.DispatchAsync(bucket, result.Commit), Times.Once());
 
 				Assert.Equal(false, await fixture.Bucket.HasUndispatchedCommitsAsync());
 			}
@@ -326,12 +328,12 @@ namespace NEStore.MongoDb.Tests
 
 				var @event = new { n1 = "v1" };
 
-				fixture.Dispatcher.Setup(p => p.DispatchAsync(It.IsAny<CommitData<object>>()))
+				fixture.Dispatcher.Setup(p => p.DispatchAsync(It.IsAny<string>(), It.IsAny<CommitData<object>>()))
 					.Throws(new MyException("Some dispatch exception"));
 
 				var result = await fixture.Bucket.WriteAsync(streamId, 0, new[] { @event });
 
-				fixture.Dispatcher.Verify(p => p.DispatchAsync(result.Commit), Times.Once());
+				fixture.Dispatcher.Verify(p => p.DispatchAsync(It.IsAny<string>(), result.Commit), Times.Once());
 
 				try
 				{
@@ -352,7 +354,7 @@ namespace NEStore.MongoDb.Tests
 			{
 				var streamId = Guid.NewGuid();
 				var @event = new { n1 = "v1" };
-				fixture.Dispatcher.Setup(p => p.DispatchAsync(It.IsAny<CommitData<object>>()))
+				fixture.Dispatcher.Setup(p => p.DispatchAsync(It.IsAny<string>(), It.IsAny<CommitData<object>>()))
 					.Throws(new MyException("Some dispatch exception"));
 				var result = await fixture.Bucket.WriteAsync(streamId, 0, new[] { @event });
 
@@ -381,7 +383,7 @@ namespace NEStore.MongoDb.Tests
 			{
 				var streamId = Guid.NewGuid();
 				var @event = new { n1 = "v1" };
-				fixture.Dispatcher.Setup(p => p.DispatchAsync(It.IsAny<CommitData<object>>()))
+				fixture.Dispatcher.Setup(p => p.DispatchAsync(It.IsAny<string>(), It.IsAny<CommitData<object>>()))
 					.Throws(new MyException("Some dispatch exception"));
 				var result = await fixture.Bucket.WriteAsync(streamId, 0, new[] { @event });
 
@@ -418,7 +420,7 @@ namespace NEStore.MongoDb.Tests
 				var @event = new { n1 = "v1" };
 
 				// Create an undispatched event
-				fixture.Dispatcher.Setup(p => p.DispatchAsync(It.IsAny<CommitData<object>>()))
+				fixture.Dispatcher.Setup(p => p.DispatchAsync(It.IsAny<string>(), It.IsAny<CommitData<object>>()))
 					.Throws(new MyException("Some dispatch exception"));
 				var result = await fixture.Bucket.WriteAsync(streamId, 0, new[] { @event });
 				try
@@ -435,7 +437,7 @@ namespace NEStore.MongoDb.Tests
 
 				// Redispatch events
 				await fixture.Bucket.DispatchUndispatchedAsync();
-				fixture.Dispatcher.Verify(p => p.DispatchAsync(It.IsAny<CommitData<object>>()), Times.Once());
+				fixture.Dispatcher.Verify(p => p.DispatchAsync(It.IsAny<string>(), It.IsAny<CommitData<object>>()), Times.Once());
 				Assert.Equal(false, await fixture.Bucket.HasUndispatchedCommitsAsync());
 			}
 		}
@@ -450,7 +452,7 @@ namespace NEStore.MongoDb.Tests
 				var @event = new { n1 = "v1" };
 
 				// Create an undispatched event
-				fixture.Dispatcher.Setup(p => p.DispatchAsync(It.IsAny<CommitData<object>>()))
+				fixture.Dispatcher.Setup(p => p.DispatchAsync(It.IsAny<string>(), It.IsAny<CommitData<object>>()))
 					.Throws(new MyException("Some dispatch exception"));
 				var result = await fixture.Bucket.WriteAsync(streamId, 0, new[] { @event });
 				try
@@ -482,7 +484,7 @@ namespace NEStore.MongoDb.Tests
 				var @event = new { n1 = "v1" };
 
 				// Create an undispatched event
-				fixture.Dispatcher.Setup(p => p.DispatchAsync(It.IsAny<CommitData<object>>()))
+				fixture.Dispatcher.Setup(p => p.DispatchAsync(It.IsAny<string>(), It.IsAny<CommitData<object>>()))
 					.Throws(new MyException("Some dispatch exception"));
 				var result = await fixture.Bucket.WriteAsync(streamId, 0, new[] { @event });
 				try

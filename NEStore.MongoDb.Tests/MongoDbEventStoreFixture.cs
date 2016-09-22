@@ -23,8 +23,8 @@ namespace NEStore.MongoDb.Tests
 			EventStore = CreateTarget();
 			Dispatcher = new Mock<IDispatcher<T>>();
 
-			Dispatcher.Setup(p => p.DispatchAsync(It.IsAny<CommitData<T>>()))
-				.Returns<CommitData<T>>(e => Task.Delay(50));
+			Dispatcher.Setup(p => p.DispatchAsync(It.IsAny<string>(), It.IsAny<CommitData<T>>()))
+				.Returns<string, CommitData<T>>((b, c) => Task.Delay(50));
 
 			EventStore.RegisterDispatchers(Dispatcher.Object);
 			Bucket = EventStore.Bucket(BucketName) as MongoDbBucket<T>;

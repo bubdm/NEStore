@@ -11,6 +11,7 @@ namespace SampleMovieCatalog
 {
 	public static class Program
 	{
+		private const string BucketName = "movies";
 		private static AggregateStore _store;
 		private static MongoDbEventStore<IEvent> _eventStore;
 		private static InMemoryMoviesProjection _moviesProjection;
@@ -25,7 +26,7 @@ namespace SampleMovieCatalog
 			_eventStore.RegisterDispatchers(
 				_moviesProjection = new InMemoryMoviesProjection(),
 				_totalMoviesProjection = new InMemoryTotalMoviesProjection());
-			_store = new AggregateStore(_eventStore.Bucket("movies"));
+			_store = new AggregateStore(_eventStore.Bucket(BucketName));
 
 			RebuildAsync().Wait();
 
@@ -86,12 +87,12 @@ namespace SampleMovieCatalog
 
 		private static async Task RebuildAsync()
 		{
-			foreach (ProjectionBase projection in _eventStore.GetDispatchers())
+			foreach (var projection in _eventStore.GetDispatchers().Cast<ProjectionBase>())
 				await projection.ClearAsync();
 
 			foreach (var c in await _store.GetCommitsAsync())
 				foreach (var projection in _eventStore.GetDispatchers())
-					await projection.DispatchAsync(c);
+					await projection.DispatchAsync(BucketName, c);
 		}
 
 		private static async Task RollbackAsync()

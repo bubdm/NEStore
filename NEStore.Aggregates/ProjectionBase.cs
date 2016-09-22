@@ -7,7 +7,7 @@ namespace NEStore.Aggregates
 	{
 		public abstract Task ClearAsync();
 
-		public Task DispatchAsync(CommitData<IEvent> commit)
+		public Task DispatchAsync(string bucketName, CommitData<IEvent> commit)
 		{
 			var tasks = new List<Task>();
 

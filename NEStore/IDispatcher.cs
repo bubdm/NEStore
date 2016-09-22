@@ -4,6 +4,6 @@ namespace NEStore
 {
 	public interface IDispatcher<T>
 	{
-		Task DispatchAsync(CommitData<T> commit);
+		Task DispatchAsync(string bucketName, CommitData<T> commit);
 	}
 }
