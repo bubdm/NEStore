@@ -12,6 +12,8 @@ namespace NEStore
 
 		Task DispatchUndispatchedAsync();
 
+		Task SetAllAsDispatched();
+
 		Task RollbackAsync(long bucketRevision);
 
 		Task<IEnumerable<T>> GetEventsAsync(Guid? streamId = null, long fromBucketRevision = 1, long? toBucketRevision = null);

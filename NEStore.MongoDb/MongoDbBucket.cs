@@ -78,6 +78,18 @@ namespace NEStore.MongoDb
 					.ConfigureAwait(false);
 		}
 
+		public async Task SetAllAsDispatched()
+		{
+			var commits = await Collection
+				.Find(p => p.Dispatched == false)
+				.Sort(Builders<CommitData<T>>.Sort.Ascending(p => p.BucketRevision))
+				.ToListAsync()
+				.ConfigureAwait(false);
+
+			await SetCommitsAsDispatched(commits.ToArray())
+				.ConfigureAwait(false);
+		}
+
 		public Task RollbackAsync(long bucketRevision)
 		{
 			return Collection
@@ -244,10 +256,19 @@ namespace NEStore.MongoDb
 			await Task.WhenAll(_eventStore.GetDispatchers().Select(x => x.DispatchAsync(commit)))
 				.ConfigureAwait(false);
 
-			await Collection.UpdateOneAsync(
-				p => p.BucketRevision == commit.BucketRevision,
-				Builders<CommitData<T>>.Update.Set(p => p.Dispatched, true))
+			await SetCommitsAsDispatched(commit)
 				.ConfigureAwait(false);
+		}
+
+		private async Task SetCommitsAsDispatched(params CommitData<T>[] commits)
+		{
+			foreach (var commit in commits)
+			{
+				await Collection.UpdateOneAsync(
+					p => p.BucketRevision == commit.BucketRevision,
+					Builders<CommitData<T>>.Update.Set(p => p.Dispatched, true))
+					.ConfigureAwait(false);
+			}
 		}
 
 		private async Task CheckForUndispatchedAsync()

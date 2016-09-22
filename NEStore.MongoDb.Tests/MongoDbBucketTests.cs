@@ -441,6 +441,38 @@ namespace NEStore.MongoDb.Tests
 		}
 
 		[Fact]
+		public async Task Can_set_undispatched_events_as_dispatched()
+		{
+			using (var fixture = new MongoDbEventStoreFixture())
+			{
+				var streamId = Guid.NewGuid();
+
+				var @event = new { n1 = "v1" };
+
+				// Create an undispatched event
+				fixture.Dispatcher.Setup(p => p.DispatchAsync(It.IsAny<CommitData<object>>()))
+					.Throws(new MyException("Some dispatch exception"));
+				var result = await fixture.Bucket.WriteAsync(streamId, 0, new[] { @event });
+				try
+				{
+					await result.DispatchTask;
+				}
+				catch (MyException)
+				{
+				}
+				Assert.Equal(true, await fixture.Bucket.HasUndispatchedCommitsAsync());
+
+				// Reset mock
+				fixture.Dispatcher.Reset();
+
+				// Mark as dispatched events
+				await fixture.Bucket.SetAllAsDispatched();
+				Assert.Equal(false, await fixture.Bucket.HasUndispatchedCommitsAsync());
+			}
+		}
+
+
+		[Fact]
 		public async Task Cannot_write_new_event_if_there_are_undispatched_events()
 		{
 			using (var fixture = new MongoDbEventStoreFixture())
