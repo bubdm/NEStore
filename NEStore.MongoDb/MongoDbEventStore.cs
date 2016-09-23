@@ -110,6 +110,11 @@ namespace NEStore.MongoDb
 			return _dispatchers;
 		}
 
+		/// <summary>
+		/// Retrieves Collection for provided bucket
+		/// </summary>
+		/// <param name="bucketName">Bucket identifier</param>
+		/// <returns>Mongo collection</returns>
 		public IMongoCollection<TDoc> CollectionFromBucket<TDoc>(string bucketName)
 		{
 			return Database.GetCollection<TDoc>(CollectionNameFromBucket(bucketName))

@@ -15,7 +15,7 @@ namespace NEStore
 		/// Persist a commit to durable storage
 		/// </summary>
 		/// <param name="streamId">Unique stream identifier</param>
-		/// <param name="expectedStreamRevision">Expected revion of the provided stream</param>
+		/// <param name="expectedStreamRevision">Expected revision of the provided stream</param>
 		/// <param name="events">List of events to commit</param>
 		/// <returns>WriteResult object containing the commit persisted and the DispatchTask of the events</returns>
 		Task<WriteResult<T>> WriteAsync(Guid streamId, int expectedStreamRevision, IEnumerable<T> events);
@@ -23,7 +23,6 @@ namespace NEStore
 		/// <summary>
 		/// Dispatch all commits where dispatched attribute is set to false
 		/// </summary>
-		/// <returns></returns>
 		Task DispatchUndispatchedAsync();
 
 		/// <summary>
@@ -35,7 +34,6 @@ namespace NEStore
 		/// Delete all commits succeeding the revision provided
 		/// </summary>
 		/// <param name="bucketRevision">Revision of last commit to keep</param>
-		/// <returns></returns>
 		Task RollbackAsync(long bucketRevision);
 
 		/// <summary>
@@ -70,8 +68,8 @@ namespace NEStore
 		/// </summary>
 		/// <param name="streamId">Unique stream identifier</param>
 		/// <param name="atBucketRevision">Get the last commit less or equal the specified bucket revision</param>
-		/// <returns></returns>
-		Task<CommitInfo> GetLastCommit(Guid? streamId = null, long? atBucketRevision = null);
+		/// <returns>Last commit info</returns>
+		Task<CommitInfo> GetLastCommitAsync(Guid? streamId = null, long? atBucketRevision = null);
 
 		/// <summary>
 		/// Retrieve all streams inside the range provided

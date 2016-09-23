@@ -9,9 +9,9 @@ namespace NEStore
 		/// <summary>
 		/// Writes commits to durable storage and wait for dispatching all events
 		/// </summary>
-		/// <param name="bucket">The bucket</param>
+		/// <param name="bucket">Bucket identifier</param>
 		/// <param name="streamId">Unique stream identifier</param>
-		/// <param name="expectedStreamRevision">Expected revion of the provided stream</param>
+		/// <param name="expectedStreamRevision">Expected revision of the provided stream</param>
 		/// <param name="events">List of events to commit</param>
 		/// <returns>WriteResult object containing the commit persisted and the DispatchTask of the events</returns>
 		public static async Task<WriteResult<T>> WriteAndDispatchAsync<T>(this IBucket<T> bucket, Guid streamId, int expectedStreamRevision, IEnumerable<T> events)
@@ -26,42 +26,39 @@ namespace NEStore
 		}
 
 		/// <summary>
-		/// Get the current bucket revision
+		/// Gets the current bucket revision
 		/// </summary>
-		/// <typeparam name="T"></typeparam>
-		/// <param name="bucket"></param>
-		/// <returns></returns>
+		/// <param name="bucket">Bucket identifier</param>
+		/// <returns>Current bucket revision, otherwise 0</returns>
 		public static async Task<long> GetBucketRevisionAsync<T>(this IBucket<T> bucket)
 		{
-			var lastCommit = await bucket.GetLastCommit();
+			var lastCommit = await bucket.GetLastCommitAsync();
 
 			return lastCommit?.BucketRevision ?? 0;
 		}
 
 		/// <summary>
-		/// Get the current stream revision
+		/// Gets the current stream revision
 		/// </summary>
-		/// <typeparam name="T"></typeparam>
-		/// <param name="bucket"></param>
-		/// <param name="streamId"></param>
-		/// <param name="atBucketRevision"></param>
-		/// <returns></returns>
+		/// <param name="bucket">Bucket identifier</param>
+		/// <param name="streamId">Unique stream identifier</param>
+		/// <param name="atBucketRevision">Max bucket revision</param>
+		/// <returns>Current stream revision, otherwise 0</returns>
 		public static async Task<int> GetStreamRevisionAsync<T>(this IBucket<T> bucket, Guid streamId, long? atBucketRevision = null)
 		{
-			var lastCommit = await bucket.GetLastCommit(streamId, atBucketRevision);
+			var lastCommit = await bucket.GetLastCommitAsync(streamId, atBucketRevision);
 
 			return lastCommit?.StreamRevisionEnd ?? 0;
 		}
 
 		/// <summary>
-		/// Returns true if there are undispatched commits
+		/// Checks if there are undispatched commits
 		/// </summary>
-		/// <typeparam name="T"></typeparam>
-		/// <param name="bucket"></param>
-		/// <returns></returns>
+		/// <param name="bucket">Bucket identifier</param>
+		/// <returns>True if there are undispatched commits, otherwise false</returns>
 		public static async Task<bool> HasUndispatchedCommitsAsync<T>(this IBucket<T> bucket)
 		{
-			var lastCommit = await bucket.GetLastCommit();
+			var lastCommit = await bucket.GetLastCommitAsync();
 
 			if (lastCommit == null)
 				return false;
