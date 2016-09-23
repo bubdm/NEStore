@@ -7,21 +7,23 @@ namespace SampleMovieCatalog
 {
 	public class InMemoryMoviesProjection : ProjectionBase
 	{
-		public List<MovieContract> Movies { get; set; } = new List<MovieContract>();
+		private readonly Dictionary<Guid, MovieContract> _movies = new Dictionary<Guid, MovieContract>();
+
+		public IEnumerable<MovieContract> Movies => _movies.Values;
 
 		// ReSharper disable UnusedMember.Local
 		private void On(Movie.Created @event)
 		{
-			if (!Movies.Exists(p => p.Id == @event.ObjectId))
-				Movies.Add(new MovieContract {Id = @event.ObjectId});
+			if (!_movies.ContainsKey(@event.ObjectId))
+				_movies.Add(@event.ObjectId,	new MovieContract {Id = @event.ObjectId});
 		}
-		private void On(Movie.TitleSet @event) => Movies.Find(p => p.Id == @event.ObjectId).Title = @event.Title;
-		private void On(Movie.GenreSet @event) => Movies.Find(p => p.Id == @event.ObjectId).Genre = @event.Genre;
+		private void On(Movie.TitleSet @event) => _movies[@event.ObjectId].Title = @event.Title;
+		private void On(Movie.GenreSet @event) => _movies[@event.ObjectId].Genre = @event.Genre;
 		// ReSharper restore UnusedMember.Local
 
 		public override Task ClearAsync()
 		{
-			Movies.Clear();
+			_movies.Clear();
 			return Task.FromResult(false);
 		}
 	}

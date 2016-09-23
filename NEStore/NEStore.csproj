@@ -43,6 +43,7 @@
   <ItemGroup>
     <Compile Include="BucketExtensions.cs" />
     <Compile Include="CommitData.cs" />
+    <Compile Include="CommitInfo.cs" />
     <Compile Include="ConcurrencyWriteException.cs" />
     <Compile Include="IBucket.cs" />
     <Compile Include="IDispatcher.cs" />

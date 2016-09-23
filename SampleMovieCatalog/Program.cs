@@ -92,18 +92,25 @@ namespace SampleMovieCatalog
 
 		private static async Task RebuildAsync()
 		{
+			Console.WriteLine("Rebuilding projections...");
+			var timer = new Stopwatch();
+			timer.Start();
+
 			foreach (var projection in _eventStore.GetDispatchers().Cast<ProjectionBase>())
 				await projection.ClearAsync();
 
 			foreach (var c in await _store.GetCommitsAsync())
 				foreach (var projection in _eventStore.GetDispatchers())
 					await projection.DispatchAsync(BucketName, c);
+
+			timer.Stop();
+			Console.WriteLine("Rebuild time: " + timer.Elapsed);
 		}
 
 		private static async Task RollbackAsync()
 		{
 			Console.Write("BucketRevision: ");
-			var revision = int.Parse(Console.ReadLine());
+			var revision = int.Parse(Console.ReadLine() ?? "");
 
 			await _store.RollbackAsync(revision);
 			await RebuildAsync();
@@ -112,7 +119,7 @@ namespace SampleMovieCatalog
 		private static async Task LoadMovieAsync()
 		{
 			Console.Write("ObjectId: ");
-			var id = Guid.Parse(Console.ReadLine());
+			var id = Guid.Parse(Console.ReadLine() ?? "");
 
 			var movie = await _store.LoadAsync<Movie>(id);
 			ObjectDumper.Write(movie);
@@ -164,7 +171,7 @@ namespace SampleMovieCatalog
 		private static async Task UpdateMovieAsync()
 		{
 			Console.Write("ObjectId: ");
-			var id = Guid.Parse(Console.ReadLine());
+			var id = Guid.Parse(Console.ReadLine() ?? "");
 			var movie = await _store.LoadAsync<Movie>(id);
 
 			Console.Write("Title: ");

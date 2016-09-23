@@ -6,6 +6,26 @@ namespace NEStore.MongoDb
 {
 	public static class MongoDbSerialization
 	{
+		static MongoDbSerialization()
+		{
+			// This is the same for all instances, I need to register only once
+			BsonClassMap.RegisterClassMap<CommitInfo>(cm =>
+			{
+				cm.MapIdProperty(c => c.BucketRevision);
+				cm.AutoMap();
+				cm.SetIgnoreExtraElements(true);
+			});
+		}
+
+		internal static void RegisterCommitData<T>()
+		{
+			BsonClassMap.RegisterClassMap<CommitData<T>>(cm =>
+			{
+				cm.AutoMap();
+				cm.SetIgnoreExtraElements(true);
+			});
+		}
+
 		public static void Register(Type type)
 		{
 			Register(type, GetDiscriminatorName(type));

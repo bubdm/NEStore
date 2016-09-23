@@ -3,7 +3,6 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using MongoDB.Bson.Serialization;
 using MongoDB.Driver;
 
 namespace NEStore.MongoDb
@@ -33,12 +32,7 @@ namespace NEStore.MongoDb
 
 		static MongoDbEventStore()
 		{
-			BsonClassMap.RegisterClassMap<CommitData<T>>(cm =>
-			{
-				cm.MapIdProperty(c => c.BucketRevision);
-				cm.AutoMap();
-				cm.SetIgnoreExtraElements(true);
-			});
+			MongoDbSerialization.RegisterCommitData<T>();
 		}
 
 		public MongoDbEventStore(string connectionString)
@@ -55,7 +49,7 @@ namespace NEStore.MongoDb
 
 		public async Task EnsureBucketAsync(string bucketName)
 		{
-			var collection = CollectionFromBucket(bucketName);
+			var collection = CollectionFromBucket<CommitData<T>>(bucketName);
 
 			var builder = new IndexKeysDefinitionBuilder<CommitData<T>>();
 
@@ -96,9 +90,9 @@ namespace NEStore.MongoDb
 			return _dispatchers;
 		}
 
-		public IMongoCollection<CommitData<T>> CollectionFromBucket(string bucketName)
+		public IMongoCollection<TDoc> CollectionFromBucket<TDoc>(string bucketName)
 		{
-			return Database.GetCollection<CommitData<T>>(CollectionNameFromBucket(bucketName))
+			return Database.GetCollection<TDoc>(CollectionNameFromBucket(bucketName))
 				.WithWriteConcern(WriteConcern);
 		}
 

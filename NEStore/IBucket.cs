@@ -20,13 +20,9 @@ namespace NEStore
 
 		Task<IEnumerable<T>> GetEventsForStreamAsync(Guid streamId, int fromStreamRevision = 1, int? toStreamRevision = null);
 
-		Task<bool> HasUndispatchedCommitsAsync();
-
 		Task<IEnumerable<CommitData<T>>> GetCommitsAsync(Guid? streamId = null, long fromBucketRevision = 1, long? toBucketRevision = null);
 
-		Task<long> GetBucketRevisionAsync();
-
-		Task<int> GetStreamRevisionAsync(Guid streamId, long? atBucketRevision = null);
+		Task<CommitInfo> GetLastCommit(Guid? streamId = null, long? atBucketRevision = null);
 
 		Task<IEnumerable<Guid>> GetStreamIdsAsync(long fromBucketRevision = 1, long? toBucketRevision = null);
 	}

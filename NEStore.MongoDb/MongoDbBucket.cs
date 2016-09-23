@@ -8,15 +8,17 @@ namespace NEStore.MongoDb
 {
 	public class MongoDbBucket<T> : IBucket<T>
 	{
-		private bool _indexesEnsured;
+		private volatile bool _indexesEnsured;
 		private readonly MongoDbEventStore<T> _eventStore;
 		public IMongoCollection<CommitData<T>> Collection { get; }
+		public IMongoCollection<CommitInfo> InfoCollection { get; }
 		public string BucketName { get; }
 
 		public MongoDbBucket(MongoDbEventStore<T> eventStore, string bucketName)
 		{
 			_eventStore = eventStore;
-			Collection = eventStore.CollectionFromBucket(bucketName);
+			Collection = eventStore.CollectionFromBucket<CommitData<T>>(bucketName);
+			InfoCollection = eventStore.CollectionFromBucket<CommitInfo>(bucketName);
 			BucketName = bucketName;
 		}
 
@@ -25,29 +27,21 @@ namespace NEStore.MongoDb
 			if (expectedStreamRevision < 0)
 				throw new ArgumentOutOfRangeException(nameof(expectedStreamRevision));
 
-			if (_eventStore.CheckStreamRevisionBeforeWriting)
-			{
-				// Note: this check doesn't ensure that in case of real concurrency no one can insert the same commit
-				//  the real check is done via a mongo index "StreamRevision". This check basically just ensure to do not write 
-				//  revision with holes
-				var actualRevision = await GetStreamRevisionAsync(streamId)
-																						.ConfigureAwait(false);
-				if (actualRevision > expectedStreamRevision)
-					throw new ConcurrencyWriteException("Someone else is working on the same bucket or stream");
-				if (actualRevision < expectedStreamRevision) // Ensure to write commits sequentially
-					throw new ArgumentOutOfRangeException(nameof(expectedStreamRevision));
-			}
+			var lastCommit = await GetLastCommit()
+				.ConfigureAwait(false);
+
+			await CheckBeforeWriting(streamId, expectedStreamRevision, lastCommit)
+				.ConfigureAwait(false);
 
 			await AutoEnsureIndexesAsync()
 				.ConfigureAwait(false);
 
-			await CheckForUndispatchedAsync()
-				.ConfigureAwait(false);
+			if (lastCommit != null)
+				CheckForUndispatched(lastCommit.Dispatched);
 
 			var eventsArray = events.ToArray();
 
-			var commit = await CreateCommitAsync(streamId, expectedStreamRevision, eventsArray)
-				.ConfigureAwait(false);
+			var commit = CreateCommitAsync(streamId, expectedStreamRevision, eventsArray, lastCommit?.BucketRevision ?? 0);
 
 			try
 			{
@@ -56,7 +50,7 @@ namespace NEStore.MongoDb
 			}
 			catch (MongoWriteException ex)
 			{
-				if (ex.WriteError != null && ex.WriteError.Code == 11000)
+				if (IsMongoExceptionDuplicateKey(ex))
 					throw new ConcurrencyWriteException("Someone else is working on the same bucket or stream", ex);
 			}
 
@@ -174,33 +168,24 @@ namespace NEStore.MongoDb
 			return commits;
 		}
 
-		public async Task<long> GetBucketRevisionAsync()
-		{
-			var result = await Collection
-				.Find(Builders<CommitData<T>>.Filter.Empty)
-				.Sort(Builders<CommitData<T>>.Sort.Descending(p => p.BucketRevision))
-				.FirstOrDefaultAsync()
-				.ConfigureAwait(false);
-
-			return result?.BucketRevision ?? 0;
-		}
-
-		public async Task<int> GetStreamRevisionAsync(Guid streamId, long? atBucketRevision = null)
+		public async Task<CommitInfo> GetLastCommit(Guid? streamId = null, long? atBucketRevision = null)
 		{
 			if (atBucketRevision <= 0)
 				throw new ArgumentOutOfRangeException(nameof(atBucketRevision), "Parameter must be greater than 0.");
 
-			var filter = Builders<CommitData<T>>.Filter.Eq(p => p.StreamId, streamId);
+			var filter = Builders<CommitInfo>.Filter.Empty;
+			if (streamId != null)
+				filter = filter & Builders<CommitInfo>.Filter.Eq(p => p.StreamId, streamId.Value);
 			if (atBucketRevision != null)
-				filter = filter & Builders<CommitData<T>>.Filter.Lte(p => p.BucketRevision, atBucketRevision.Value);
+				filter = filter & Builders<CommitInfo>.Filter.Lte(p => p.BucketRevision, atBucketRevision.Value);
 
-			var result = await Collection
+			var result = await InfoCollection
 				.Find(filter)
-				.Sort(Builders<CommitData<T>>.Sort.Descending(p => p.BucketRevision))
+				.Sort(Builders<CommitInfo>.Sort.Descending(p => p.BucketRevision))
 				.FirstOrDefaultAsync()
 				.ConfigureAwait(false);
 
-			return result?.StreamRevisionEnd ?? 0;
+			return result;
 		}
 
 		public async Task<IEnumerable<Guid>> GetStreamIdsAsync(long fromBucketRevision = 1, long? toBucketRevision = null)
@@ -227,11 +212,11 @@ namespace NEStore.MongoDb
 		}
 
 
-		private async Task<CommitData<T>> CreateCommitAsync(Guid streamId, int expectedStreamRevision, T[] eventsArray)
+		private static CommitData<T> CreateCommitAsync(Guid streamId, int expectedStreamRevision, T[] eventsArray, long bucketRevision)
 		{
 			var commit = new CommitData<T>
 			{
-				BucketRevision = await GetBucketRevisionAsync().ConfigureAwait(false) + 1,
+				BucketRevision = bucketRevision + 1,
 				Dispatched = false,
 				Events = eventsArray,
 				StreamId = streamId,
@@ -271,18 +256,43 @@ namespace NEStore.MongoDb
 			}
 		}
 
-		private async Task CheckForUndispatchedAsync()
+		private void CheckForUndispatched(bool lastCommitdDispatched)
 		{
 			if (!_eventStore.AutoCheckUndispatched)
 				return;
 
-			var hasUndispatched = await HasUndispatchedCommitsAsync()
-				.ConfigureAwait(false);
+			var hasUndispatched = !lastCommitdDispatched;
 			if (hasUndispatched)
 				throw new UndispatchedEventsFoundException("Undispatched events found, cannot write new events");
 
 			// Eventually here I can try to dispatch undispatched to try to "recover" from a broken situations...
 		}
 
+		private static bool IsMongoExceptionDuplicateKey(MongoWriteException ex)
+		{
+			return ex.WriteError != null && ex.WriteError.Code == 11000;
+		}
+
+		private async Task CheckBeforeWriting(Guid streamId, int expectedStreamRevision, CommitInfo lastCommit)
+		{
+			if (!_eventStore.CheckStreamRevisionBeforeWriting)
+				return;
+
+			if (lastCommit == null)
+				return;
+
+			var lastStreamRevision = lastCommit.StreamId == streamId
+				? lastCommit.StreamRevisionEnd
+				: await this.GetStreamRevisionAsync(streamId)
+					.ConfigureAwait(false);
+
+			// Note: this check doesn't ensure that in case of real concurrency no one can insert the same commit
+			//  the real check is done via a mongo index "StreamRevision". This check basically just ensure to do not write 
+			//  revision with holes
+			if (lastStreamRevision > expectedStreamRevision)
+				throw new ConcurrencyWriteException("Someone else is working on the same bucket or stream");
+			if (lastStreamRevision < expectedStreamRevision) // Ensure to write commits sequentially
+				throw new ArgumentOutOfRangeException(nameof(expectedStreamRevision));
+		}
 	}
 }
