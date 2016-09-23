@@ -7,7 +7,8 @@ namespace NEStore
 		/// <summary>
 		/// Dispatch a commit
 		/// </summary>
+		/// /// <param name="bucketName">Bucket identifier</param>
 		/// <param name="commit">Commit to dispatch</param>
-		Task DispatchAsync(CommitData<T> commit);
+		Task DispatchAsync(string bucketName, CommitData<T> commit);
 	}
 }

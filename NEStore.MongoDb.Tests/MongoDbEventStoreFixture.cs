@@ -8,6 +8,9 @@ namespace NEStore.MongoDb.Tests
 {
 	public class MongoDbEventStoreFixture : MongoDbEventStoreFixture<object>
 	{
+		public MongoDbEventStoreFixture(int dispatchDelay = 50) : base(dispatchDelay)
+		{
+		}
 	}
 
 	public class MongoDbEventStoreFixture<T> : IDisposable
@@ -17,14 +20,14 @@ namespace NEStore.MongoDb.Tests
 		public MongoDbBucket<T> Bucket { get; }
 		public Mock<IDispatcher<T>> Dispatcher { get; }
 
-		public MongoDbEventStoreFixture()
+		public MongoDbEventStoreFixture(int dispatchDelay = 50)
 		{
 			BucketName = RandomString(10);
 			EventStore = CreateTarget();
 			Dispatcher = new Mock<IDispatcher<T>>();
 
-			Dispatcher.Setup(p => p.DispatchAsync(It.IsAny<CommitData<T>>()))
-				.Returns<CommitData<T>>(e => Task.Delay(50));
+			Dispatcher.Setup(p => p.DispatchAsync(It.IsAny<string>(), It.IsAny<CommitData<T>>()))
+				.Returns<string, CommitData<T>>((b, c) => Task.Delay(dispatchDelay));
 
 			EventStore.RegisterDispatchers(Dispatcher.Object);
 			Bucket = EventStore.Bucket(BucketName) as MongoDbBucket<T>;

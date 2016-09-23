@@ -326,7 +326,7 @@ namespace NEStore.MongoDb
 		/// <param name="commit">Commit to be dispatched</param>
 		private async Task DispatchCommitAsync(CommitData<T> commit)
 		{
-			await Task.WhenAll(_eventStore.GetDispatchers().Select(x => x.DispatchAsync(commit)))
+			await Task.WhenAll(_eventStore.GetDispatchers().Select(x => x.DispatchAsync(BucketName, commit)))
 				.ConfigureAwait(false);
 
 			await SetCommitsAsDispatched(commit)

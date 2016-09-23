@@ -14,17 +14,19 @@ namespace NEStore.Aggregates
 			_bucket = bucket;
 		}
 
-		public async Task SaveAsync(Aggregate aggregate)
+		public async Task<WriteResult<IEvent>> SaveAsync(Aggregate aggregate)
 		{
 			var lastVersion = aggregate.Version;
 			var changes = aggregate.GetChanges()
 				.ToList();
 
 			var version = lastVersion - changes.Count;
-			await _bucket.WriteAsync(aggregate.ObjectId, version, changes)
+			var result = await _bucket.WriteAsync(aggregate.ObjectId, version, changes)
                     .ConfigureAwait(false);
 
 			aggregate.ClearChanges();
+
+			return result;
 		}
 
 		public async Task<T> LoadAsync<T>(Guid objectId)

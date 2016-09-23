@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Configuration;
+using System.Diagnostics;
 using System.Dynamic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -11,6 +12,7 @@ namespace SampleMovieCatalog
 {
 	public static class Program
 	{
+		private const string BucketName = "movies";
 		private static AggregateStore _store;
 		private static MongoDbEventStore<IEvent> _eventStore;
 		private static InMemoryMoviesProjection _moviesProjection;
@@ -25,7 +27,7 @@ namespace SampleMovieCatalog
 			_eventStore.RegisterDispatchers(
 				_moviesProjection = new InMemoryMoviesProjection(),
 				_totalMoviesProjection = new InMemoryTotalMoviesProjection());
-			_store = new AggregateStore(_eventStore.Bucket("movies"));
+			_store = new AggregateStore(_eventStore.Bucket(BucketName));
 
 			RebuildAsync().Wait();
 
@@ -36,6 +38,7 @@ namespace SampleMovieCatalog
 				Console.WriteLine("");
 				Console.WriteLine("Actions:");
 				Console.WriteLine(" -i: Insert a movie");
+				Console.WriteLine(" -b: Bulk insert movies");
 				Console.WriteLine(" -u: Update movie");
 				Console.WriteLine(" -l: List events");
 				Console.WriteLine(" -p: Print movies");
@@ -48,6 +51,9 @@ namespace SampleMovieCatalog
 				{
 					case "i":
 						InsertMovieAsync().Wait();
+						break;
+					case "b":
+						BulkInsertMoviesAsync().Wait();
 						break;
 					case "u":
 						UpdateMovieAsync().Wait();
@@ -86,12 +92,12 @@ namespace SampleMovieCatalog
 
 		private static async Task RebuildAsync()
 		{
-			foreach (ProjectionBase projection in _eventStore.GetDispatchers())
+			foreach (var projection in _eventStore.GetDispatchers().Cast<ProjectionBase>())
 				await projection.ClearAsync();
 
 			foreach (var c in await _store.GetCommitsAsync())
 				foreach (var projection in _eventStore.GetDispatchers())
-					await projection.DispatchAsync(c);
+					await projection.DispatchAsync(BucketName, c);
 		}
 
 		private static async Task RollbackAsync()
@@ -129,6 +135,30 @@ namespace SampleMovieCatalog
 			movie.Genre = Console.ReadLine();
 
 			return _store.SaveAsync(movie);
+		}
+
+		private static async Task BulkInsertMoviesAsync()
+		{
+			var timer = new Stopwatch();
+
+			Console.Write("How many: ");
+			var count = int.Parse(Console.ReadLine() ?? "1");
+
+			timer.Start();
+			for (var i = 0; i < count; i++)
+			{
+				var movie = new Movie(Guid.NewGuid())
+				{
+					Title = Guid.NewGuid().ToString(),
+					Genre = Guid.NewGuid().ToString()
+				};
+
+				var result = await _store.SaveAsync(movie);
+
+				await result.DispatchTask;
+			}
+			timer.Stop();
+			Console.WriteLine("Elapsed: " + timer.Elapsed);
 		}
 
 		private static async Task UpdateMovieAsync()
