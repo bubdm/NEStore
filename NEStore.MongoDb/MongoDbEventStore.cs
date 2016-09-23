@@ -53,6 +53,10 @@ namespace NEStore.MongoDb
 			Database = client.GetDatabase(url.DatabaseName);
 		}
 
+		/// <summary>
+		/// Setup bucket creating Indexes
+		/// </summary>
+		/// <param name="bucketName">Bucket identifier</param>
 		public async Task EnsureBucketAsync(string bucketName)
 		{
 			var collection = CollectionFromBucket(bucketName);
@@ -72,12 +76,20 @@ namespace NEStore.MongoDb
 			}).ConfigureAwait(false);
 		}
 
+		/// <summary>
+		/// Drop bucket from Mongo
+		/// </summary>
+		/// <param name="bucketName">Bucket identifier</param>
 		public async Task DeleteBucketAsync(string bucketName)
 		{
 			await Database.DropCollectionAsync(CollectionNameFromBucket(bucketName))
 										.ConfigureAwait(false);
 		}
 
+		/// <summary>
+		/// Provide the bucket instance
+		/// </summary>
+		/// <param name="bucketName">Bucket identifier</param>
 		public IBucket<T> Bucket(string bucketName)
 		{
 			return _buckets.GetOrAdd(
@@ -86,11 +98,19 @@ namespace NEStore.MongoDb
 				);
 		}
 
+		/// <summary>
+		/// Register dispatchers
+		/// </summary>
+		/// <param name="dispatchers">List of dispatchers</param>
 		public void RegisterDispatchers(params IDispatcher<T>[] dispatchers)
 		{
 			_dispatchers = dispatchers;
 		}
 
+		/// <summary>
+		/// Return registered dispatchers
+		/// </summary>
+		/// <returns>List of dispatchers</returns>
 		public IEnumerable<IDispatcher<T>> GetDispatchers()
 		{
 			return _dispatchers;
@@ -102,6 +122,11 @@ namespace NEStore.MongoDb
 				.WithWriteConcern(WriteConcern);
 		}
 
+		/// <summary>
+		/// Format collection for a bucket
+		/// </summary>
+		/// <param name="bucketName">Bucket identifier</param>
+		/// <returns>Collection name</returns>
 		private static string CollectionNameFromBucket(string bucketName)
 		{
 			if (!IsValidBucketName(bucketName))
@@ -110,6 +135,11 @@ namespace NEStore.MongoDb
 			return $"{bucketName}.commits";
 		}
 
+		/// <summary>
+		/// Validate bucket name
+		/// </summary>
+		/// <param name="bucketName">Bucket identifier</param>
+		/// <returns>True if name is valid, otherwise false</returns>
 		private static bool IsValidBucketName(string bucketName)
 		{
 			if (string.IsNullOrWhiteSpace(bucketName))

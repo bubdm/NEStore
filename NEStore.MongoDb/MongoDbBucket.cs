@@ -20,6 +20,13 @@ namespace NEStore.MongoDb
 			BucketName = bucketName;
 		}
 
+		/// <summary>
+		/// Persist a commit to Mongo
+		/// </summary>
+		/// <param name="streamId">Unique stream identifier</param>
+		/// <param name="expectedStreamRevision">Expected revion of the provided stream</param>
+		/// <param name="events">List of events to commit</param>
+		/// <returns>WriteResult object containing the commit persisted and the DispatchTask of the events</returns>
 		public async Task<WriteResult<T>> WriteAsync(Guid streamId, int expectedStreamRevision, IEnumerable<T> events)
 		{
 			if (expectedStreamRevision < 0)
@@ -65,6 +72,10 @@ namespace NEStore.MongoDb
 			return new WriteResult<T>(commit, dispatchTask);
 		}
 
+		/// <summary>
+		/// Dispatch all commits where dispatched attribute is set to false
+		/// </summary>
+		/// <returns></returns>
 		public async Task DispatchUndispatchedAsync()
 		{
 			var commits = await Collection
@@ -78,6 +89,9 @@ namespace NEStore.MongoDb
 					.ConfigureAwait(false);
 		}
 
+		/// <summary>
+		/// Set all undispatched events as dispatched, without dispatching them
+		/// </summary>
 		public async Task SetAllAsDispatched()
 		{
 			var commits = await Collection
@@ -90,12 +104,24 @@ namespace NEStore.MongoDb
 				.ConfigureAwait(false);
 		}
 
+		/// <summary>
+		/// Delete all commits succeeding the revision provided
+		/// </summary>
+		/// <param name="bucketRevision">Revision of last commit to keep</param>
+		/// <returns></returns>
 		public Task RollbackAsync(long bucketRevision)
 		{
 			return Collection
 				.DeleteManyAsync(p => p.BucketRevision > bucketRevision);
 		}
 
+		/// <summary>
+		/// Retrieve all events from bucket filtered by params
+		/// </summary>
+		/// <param name="streamId">Unique stream identifier</param>
+		/// <param name="fromBucketRevision">Start bucket revision</param>
+		/// <param name="toBucketRevision">End bucket revision</param>
+		/// <returns>Flattered list of events retrieved from commits</returns>
 		public async Task<IEnumerable<T>> GetEventsAsync(Guid? streamId = null, long fromBucketRevision = 1, long? toBucketRevision = null)
 		{
 			var commits = await GetCommitsAsync(streamId, fromBucketRevision, toBucketRevision)
@@ -104,6 +130,13 @@ namespace NEStore.MongoDb
 			return commits.SelectMany(c => c.Events);
 		}
 
+		/// <summary>
+		/// Retrieve all events from bucket filtered by params
+		/// </summary>
+		/// <param name="streamId">Unique stream identifier</param>
+		/// <param name="fromStreamRevision">Start stream revision</param>
+		/// <param name="toStreamRevision">End stream revision</param>
+		/// <returns>Flattered list of events retrieved from commits</returns>
 		public async Task<IEnumerable<T>> GetEventsForStreamAsync(Guid streamId, int fromStreamRevision = 1, int? toStreamRevision = null)
 		{
 			if (fromStreamRevision <= 0)
@@ -139,6 +172,10 @@ namespace NEStore.MongoDb
 				.ToList();
 		}
 
+		/// <summary>
+		/// Check if collection has undispatched commits
+		/// </summary>
+		/// <returns>True if at least one commit is undispatched, otherwise false</returns>
 		public async Task<bool> HasUndispatchedCommitsAsync()
 		{
 			return await Collection
@@ -147,6 +184,13 @@ namespace NEStore.MongoDb
 				.ConfigureAwait(false);
 		}
 
+		/// <summary>
+		/// Retrieve all commits from bucket filtered by params
+		/// </summary>
+		/// <param name="streamId">Unique stream identifier</param>
+		/// <param name="fromBucketRevision">Start bucket revision</param>
+		/// <param name="toBucketRevision">End bucket revision</param>
+		/// <returns>List of commits matching filters</returns>
 		public async Task<IEnumerable<CommitData<T>>> GetCommitsAsync(Guid? streamId = null, long fromBucketRevision = 1, long? toBucketRevision = null)
 		{
 			if (fromBucketRevision <= 0)
@@ -174,6 +218,10 @@ namespace NEStore.MongoDb
 			return commits;
 		}
 
+		/// <summary>
+		/// Retrieve the current bucket revision
+		/// </summary>
+		/// <returns>Last commit revision, otherwise 0</returns>
 		public async Task<long> GetBucketRevisionAsync()
 		{
 			var result = await Collection
@@ -185,6 +233,12 @@ namespace NEStore.MongoDb
 			return result?.BucketRevision ?? 0;
 		}
 
+		/// <summary>
+		/// Retrieve the current stream revision
+		/// </summary>
+		/// <param name="streamId">Unique stream identifier</param>
+		/// <param name="atBucketRevision">Max stream revision</param>
+		/// <returns>Last stream revision, otherwise 0</returns>
 		public async Task<int> GetStreamRevisionAsync(Guid streamId, long? atBucketRevision = null)
 		{
 			if (atBucketRevision <= 0)
@@ -203,6 +257,12 @@ namespace NEStore.MongoDb
 			return result?.StreamRevisionEnd ?? 0;
 		}
 
+		/// <summary>
+		/// Retrieve all streams inside the range provided
+		/// </summary>
+		/// <param name="fromBucketRevision">Min bucket revision</param>
+		/// <param name="toBucketRevision">Max bucket revision</param>
+		/// <returns>List of streams identifiers</returns>
 		public async Task<IEnumerable<Guid>> GetStreamIdsAsync(long fromBucketRevision = 1, long? toBucketRevision = null)
 		{
 			if (fromBucketRevision <= 0)
@@ -226,7 +286,13 @@ namespace NEStore.MongoDb
 			return result;
 		}
 
-
+		/// <summary>
+		/// Create commit object that will be persisted to Mongo
+		/// </summary>
+		/// <param name="streamId">Unique stream identifier</param>
+		/// <param name="expectedStreamRevision">Expected revion of the provided stream</param>
+		/// <param name="eventsArray">List of events to commit</param>
+		/// <returns></returns>
 		private async Task<CommitData<T>> CreateCommitAsync(Guid streamId, int expectedStreamRevision, T[] eventsArray)
 		{
 			var commit = new CommitData<T>
@@ -241,6 +307,9 @@ namespace NEStore.MongoDb
 			return commit;
 		}
 
+		/// <summary>
+		/// Setup bucket creating Indexes
+		/// </summary>
 		private async Task AutoEnsureIndexesAsync()
 		{
 			if (_indexesEnsured || !_eventStore.AutoEnsureIndexes)
@@ -251,6 +320,10 @@ namespace NEStore.MongoDb
 			_indexesEnsured = true;
 		}
 
+		/// <summary>
+		/// Dispatch events of commit
+		/// </summary>
+		/// <param name="commit">Commit to be dispatched</param>
 		private async Task DispatchCommitAsync(CommitData<T> commit)
 		{
 			await Task.WhenAll(_eventStore.GetDispatchers().Select(x => x.DispatchAsync(commit)))
@@ -260,6 +333,10 @@ namespace NEStore.MongoDb
 				.ConfigureAwait(false);
 		}
 
+		/// <summary>
+		/// Set commits as dispatched
+		/// </summary>
+		/// <param name="commits">List of commits dispatched</param>
 		private async Task SetCommitsAsDispatched(params CommitData<T>[] commits)
 		{
 			foreach (var commit in commits)
@@ -271,6 +348,10 @@ namespace NEStore.MongoDb
 			}
 		}
 
+		/// <summary>
+		/// Check if bucket has undispatched commmits
+		/// </summary>
+		/// <returns>Throw UndispatchedEventsFoundException if undispatched commits exists</returns>
 		private async Task CheckForUndispatchedAsync()
 		{
 			if (!_eventStore.AutoCheckUndispatched)
