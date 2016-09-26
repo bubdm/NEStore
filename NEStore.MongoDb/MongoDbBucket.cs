@@ -44,7 +44,7 @@ namespace NEStore.MongoDb
 				.ConfigureAwait(false);
 
 			if (lastCommit != null)
-				CheckForUndispatched(lastCommit.Dispatched);
+				lastCommit = await CheckForUndispatched(lastCommit);
 
 			var eventsArray = events.ToArray();
 
@@ -325,19 +325,49 @@ namespace NEStore.MongoDb
 		}
 
 		/// <summary>
-		/// Check if bucket has undispatched commits
+		/// Check if bucket has undispatched commits, if founded tries to dispatch them
 		/// </summary>
 		/// <returns>Throw UndispatchedEventsFoundException if undispatched commits exists</returns>
-		private void CheckForUndispatched(bool lastCommitdDispatched)
+		private async Task<CommitInfo> CheckForUndispatched(CommitInfo lastCommit)
 		{
 			if (!_eventStore.AutoCheckUndispatched)
-				return;
+				return lastCommit;
 
-			var hasUndispatched = !lastCommitdDispatched;
-			if (hasUndispatched)
+			if (lastCommit.Dispatched) return lastCommit;
+
+			if (_eventStore.AutoDispatchUndispatchedOnWrite)
+			{
+				lastCommit = await DispatchLastCommitAsync().ConfigureAwait(false);
+			}
+
+			if(!lastCommit.Dispatched)
 				throw new UndispatchedEventsFoundException("Undispatched events found, cannot write new events");
 
-			// Eventually here I can try to dispatch undispatched to try to "recover" from a broken situations...
+			return lastCommit;
+		}
+
+		private async Task<CommitInfo> DispatchLastCommitAsync()
+		{
+			await Task.Delay(TimeSpan.FromSeconds(5))
+				.ConfigureAwait(false);
+
+			var lastCommit = await GetLastCommitAsync()
+				.ConfigureAwait(false);
+
+			if (lastCommit.Dispatched) return lastCommit;
+
+			try
+			{
+				await DispatchUndispatchedAsync()
+					.ConfigureAwait(false);
+			}
+			catch (Exception ex)
+			{
+				throw new UndispatchedEventsFoundException("Undispatched events found, cannot dispatch them and write new events", ex);
+			}
+
+			return await GetLastCommitAsync()
+				.ConfigureAwait(false);
 		}
 
 		/// <summary>

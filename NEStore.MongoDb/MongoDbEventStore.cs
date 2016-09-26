@@ -26,6 +26,10 @@ namespace NEStore.MongoDb
 		/// </summary>
 		public bool AutoCheckUndispatched { get; set; } = true;
 		/// <summary>
+		/// Dispatch undispatched events at each write. Default is true.
+		/// </summary>
+		public bool AutoDispatchUndispatchedOnWrite { get; set; } = true;
+		/// <summary>
 		/// Manually check for stream revision validity before writing any data. Default is true.
 		/// </summary>
 		public bool CheckStreamRevisionBeforeWriting { get; set; } = true;

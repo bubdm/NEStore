@@ -473,9 +473,8 @@ namespace NEStore.MongoDb.Tests
 			}
 		}
 
-
 		[Fact]
-		public async Task Cannot_write_new_event_if_there_are_undispatched_events()
+		public async Task Cannot_write_new_event_if_undispatched_events_are_found()
 		{
 			using (var fixture = new MongoDbEventStoreFixture())
 			{
@@ -487,17 +486,69 @@ namespace NEStore.MongoDb.Tests
 				fixture.Dispatcher.Setup(p => p.DispatchAsync(It.IsAny<string>(), It.IsAny<CommitData<object>>()))
 					.Throws(new MyException("Some dispatch exception"));
 				var result = await fixture.Bucket.WriteAsync(streamId, 0, new[] { @event });
-				try
-				{
-					await result.DispatchTask;
-				}
-				catch (MyException)
-				{
-				}
+
+				await Assert.ThrowsAsync<MyException>(() => result.DispatchTask);
+
+				Assert.Equal(true, await fixture.Bucket.HasUndispatchedCommitsAsync());
+
+				fixture.EventStore.AutoDispatchUndispatchedOnWrite = false;
+
+				await
+					Assert.ThrowsAsync<UndispatchedEventsFoundException>(() => fixture.Bucket.WriteAsync(streamId, 1, new[] { @event }));
+
+				fixture.Dispatcher.Verify(p => p.DispatchAsync(It.IsAny<string>(), It.IsAny<CommitData<object>>()), Times.Once());
+			}
+		}
+
+		[Fact]
+		public async Task Should_dispatch_undispatched_events_at_next_write_and_cannot_write_new_event()
+		{
+			using (var fixture = new MongoDbEventStoreFixture())
+			{
+				var streamId = Guid.NewGuid();
+
+				var @event = new { n1 = "v1" };
+
+				// Create an undispatched event
+				fixture.Dispatcher.Setup(p => p.DispatchAsync(It.IsAny<string>(), It.IsAny<CommitData<object>>()))
+					.Throws(new MyException("Some dispatch exception"));
+				var result = await fixture.Bucket.WriteAsync(streamId, 0, new[] { @event });
+
+				await Assert.ThrowsAsync<MyException>(() => result.DispatchTask);
+
 				Assert.Equal(true, await fixture.Bucket.HasUndispatchedCommitsAsync());
 
 				await
 					Assert.ThrowsAsync<UndispatchedEventsFoundException>(() => fixture.Bucket.WriteAsync(streamId, 1, new[] { @event }));
+
+				fixture.Dispatcher.Verify(p => p.DispatchAsync(It.IsAny<string>(), It.IsAny<CommitData<object>>()), Times.Exactly(2));
+			}
+		}
+
+		[Fact]
+		public async Task Should_dispatch_undispatched_events_at_next_write()
+		{
+			using (var fixture = new MongoDbEventStoreFixture())
+			{
+				var streamId = Guid.NewGuid();
+
+				var @event = new { n1 = "v1" };
+
+				// Create an undispatched event
+				fixture.Dispatcher.Setup(p => p.DispatchAsync(It.IsAny<string>(), It.IsAny<CommitData<object>>()))
+					.Throws(new MyException("Some dispatch exception"));
+				var result = await fixture.Bucket.WriteAsync(streamId, 0, new[] { @event });
+
+				await Assert.ThrowsAsync<MyException>(() => result.DispatchTask);
+
+				Assert.Equal(true, await fixture.Bucket.HasUndispatchedCommitsAsync());
+
+				fixture.Dispatcher.Setup(p => p.DispatchAsync(It.IsAny<string>(), It.IsAny<CommitData<object>>()))
+				.Returns<string, CommitData<object>>((b, c) => Task.Delay(50));
+				
+				await fixture.Bucket.WriteAsync(streamId, 1, new[] { @event });
+
+				fixture.Dispatcher.Verify(p => p.DispatchAsync(It.IsAny<string>(), It.IsAny<CommitData<object>>()), Times.Exactly(3));
 			}
 		}
 
@@ -806,6 +857,7 @@ namespace NEStore.MongoDb.Tests
 				Assert.Equal("Icardi", events.ElementAt(1).LastName);
 			}
 		}
+
 
 		[Serializable]
 		private class MyException : Exception
