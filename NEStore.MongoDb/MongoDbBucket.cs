@@ -44,7 +44,8 @@ namespace NEStore.MongoDb
 				.ConfigureAwait(false);
 
 			if (lastCommit != null)
-				lastCommit = await CheckForUndispatched(lastCommit);
+				lastCommit = await CheckForUndispatched(lastCommit)
+					.ConfigureAwait(false);
 
 			var eventsArray = events.ToArray();
 
@@ -337,7 +338,8 @@ namespace NEStore.MongoDb
 
 			if (_eventStore.AutoDispatchUndispatchedOnWrite)
 			{
-				lastCommit = await DispatchLastCommitAsync().ConfigureAwait(false);
+				lastCommit = await DispatchLastCommitAsync()
+					.ConfigureAwait(false);
 			}
 
 			if(!lastCommit.Dispatched)

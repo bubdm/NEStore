@@ -32,7 +32,8 @@ namespace NEStore
 		/// <returns>Current bucket revision, otherwise 0</returns>
 		public static async Task<long> GetBucketRevisionAsync<T>(this IBucket<T> bucket)
 		{
-			var lastCommit = await bucket.GetLastCommitAsync();
+			var lastCommit = await bucket.GetLastCommitAsync()
+				.ConfigureAwait(false);
 
 			return lastCommit?.BucketRevision ?? 0;
 		}
@@ -46,7 +47,8 @@ namespace NEStore
 		/// <returns>Current stream revision, otherwise 0</returns>
 		public static async Task<int> GetStreamRevisionAsync<T>(this IBucket<T> bucket, Guid streamId, long? atBucketRevision = null)
 		{
-			var lastCommit = await bucket.GetLastCommitAsync(streamId, atBucketRevision);
+			var lastCommit = await bucket.GetLastCommitAsync(streamId, atBucketRevision)
+				.ConfigureAwait(false);
 
 			return lastCommit?.StreamRevisionEnd ?? 0;
 		}
@@ -58,7 +60,8 @@ namespace NEStore
 		/// <returns>True if there are undispatched commits, otherwise false</returns>
 		public static async Task<bool> HasUndispatchedCommitsAsync<T>(this IBucket<T> bucket)
 		{
-			var lastCommit = await bucket.GetLastCommitAsync();
+			var lastCommit = await bucket.GetLastCommitAsync()
+				.ConfigureAwait(false);
 
 			if (lastCommit == null)
 				return false;
