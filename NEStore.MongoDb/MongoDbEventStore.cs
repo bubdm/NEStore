@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using MongoDB.Bson;
 using MongoDB.Driver;
 
 namespace NEStore.MongoDb
@@ -13,10 +14,6 @@ namespace NEStore.MongoDb
 		private IDispatcher<T>[] _dispatchers = new IDispatcher<T>[0];
 		public IMongoDatabase Database { get; }
 
-		/// <summary>
-		/// Configure the MongoDb write concern. Default is Acknowledged.
-		/// </summary>
-		public WriteConcern WriteConcern { get; set; } = WriteConcern.Acknowledged;
 		/// <summary>
 		/// Create indexes at first write. Default is true.
 		/// </summary>
@@ -40,15 +37,19 @@ namespace NEStore.MongoDb
 		}
 
 		public MongoDbEventStore(string connectionString)
+			:this(connectionString, GetDefaultDatabaseSettings(connectionString))
+		{
+		}
+
+		public MongoDbEventStore(string connectionString, MongoDatabaseSettings settings)
 		{
 			var url = new MongoUrlBuilder(connectionString);
 
 			if (string.IsNullOrWhiteSpace(url.DatabaseName))
 				throw new ArgumentException("MongoDb connection string doesn't contain database");
-
+			
 			var client = new MongoClient(url.ToMongoUrl());
-
-			Database = client.GetDatabase(url.DatabaseName);
+			Database = client.GetDatabase(url.DatabaseName, settings);
 		}
 
 		/// <summary>
@@ -121,8 +122,8 @@ namespace NEStore.MongoDb
 		/// <returns>Mongo collection</returns>
 		public IMongoCollection<TDoc> CollectionFromBucket<TDoc>(string bucketName)
 		{
-			return Database.GetCollection<TDoc>(CollectionNameFromBucket(bucketName))
-				.WithWriteConcern(WriteConcern);
+			return Database
+				.GetCollection<TDoc>(CollectionNameFromBucket(bucketName));
 		}
 
 		/// <summary>
@@ -150,6 +151,51 @@ namespace NEStore.MongoDb
 
 			var regExp = new Regex("^[a-z]+$");
 			return regExp.IsMatch(bucketName);
+		}
+
+		/// <summary>
+		/// Get the default mongodb settings used.
+		/// Default values:
+		/// 	GuidRepresentation = Standard,
+		///		WriteConcern = Majority with journal,
+		///		ReadConcern = Majority,
+		///		ReadPreference = Primary
+		/// </summary>
+		/// <returns></returns>
+		public static MongoDatabaseSettings GetDefaultDatabaseSettings(string connectionString)
+		{
+			var supportsCommittedReads = IsCommittedReadsSupported(connectionString);
+
+			var dbSettings = new MongoDatabaseSettings()
+			{
+				GuidRepresentation = GuidRepresentation.Standard,
+				WriteConcern = WriteConcern.WMajority, // new WriteConcern("majority", journal: true),
+				ReadConcern = supportsCommittedReads ? ReadConcern.Majority : ReadConcern.Default,
+				ReadPreference = ReadPreference.Primary
+			};
+			
+			return dbSettings;
+		}
+
+		private static bool IsCommittedReadsSupported(string connectionString)
+		{
+			var client = new MongoClient(connectionString);
+			var status = client.GetDatabase("admin")
+				.RunCommand<BsonDocument>(new BsonDocument("serverStatus", 1));
+
+			var supportsCommittedReads = false;
+			BsonElement storageEngineElement;
+			if (status.TryGetElement("storageEngine", out storageEngineElement))
+			{
+				var storageEngineDoc = storageEngineElement.Value as BsonDocument;
+				BsonValue supportsCommittedReadsValue;
+				if (storageEngineDoc != null
+				    && storageEngineDoc.TryGetValue("supportsCommittedReads", out supportsCommittedReadsValue))
+				{
+					supportsCommittedReads = supportsCommittedReadsValue.AsBoolean;
+				}
+			}
+			return supportsCommittedReads;
 		}
 	}
 }
