@@ -169,7 +169,7 @@ namespace NEStore.MongoDb
 			var dbSettings = new MongoDatabaseSettings()
 			{
 				GuidRepresentation = GuidRepresentation.Standard,
-				WriteConcern = WriteConcern.WMajority, // new WriteConcern("majority", journal: true),
+				WriteConcern = new WriteConcern("majority", journal: true),
 				ReadConcern = supportsCommittedReads ? ReadConcern.Majority : ReadConcern.Default,
 				ReadPreference = ReadPreference.Primary
 			};
