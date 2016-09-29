@@ -175,7 +175,7 @@ namespace NEStore.MongoDb
 
 			var dbSettings = new MongoDatabaseSettings()
 			{
-				GuidRepresentation = GuidRepresentation.Standard,
+				GuidRepresentation = connectionString.Contains("uuidRepresentation=") ? url.GuidRepresentation : GuidRepresentation.Standard,
 				WriteConcern = new WriteConcern(url.W ?? "majority", journal: url.Journal ?? true),
 				ReadConcern = readConcern,
 				ReadPreference = url.ReadPreference ?? ReadPreference.Primary

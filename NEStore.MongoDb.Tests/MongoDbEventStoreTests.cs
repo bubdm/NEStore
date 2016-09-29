@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Threading.Tasks;
+using MongoDB.Bson;
 using MongoDB.Driver;
 using Xunit;
 
@@ -55,17 +56,19 @@ namespace NEStore.MongoDb.Tests
 		}
 
 		[Theory]
-		[InlineData("mongodb://localhost", "majority", true, null, ReadPreferenceMode.Primary)]
-		[InlineData("mongodb://localhost?readConcernLevel=majority", "majority", true, ReadConcernLevel.Majority, ReadPreferenceMode.Primary)]
-		[InlineData("mongodb://localhost?readPreference=nearest", "majority", true, null, ReadPreferenceMode.Nearest)]
-		[InlineData("mongodb://localhost?w=3", "3", true, null, ReadPreferenceMode.Primary)]
-		[InlineData("mongodb://localhost?journal=false", "majority", false, null, ReadPreferenceMode.Primary)]
+		[InlineData("mongodb://localhost", "majority", true, null, ReadPreferenceMode.Primary, GuidRepresentation.Standard)]
+		[InlineData("mongodb://localhost?readConcernLevel=majority", "majority", true, ReadConcernLevel.Majority, ReadPreferenceMode.Primary, GuidRepresentation.Standard)]
+		[InlineData("mongodb://localhost?readPreference=nearest", "majority", true, null, ReadPreferenceMode.Nearest, GuidRepresentation.Standard)]
+		[InlineData("mongodb://localhost?w=3", "3", true, null, ReadPreferenceMode.Primary, GuidRepresentation.Standard)]
+		[InlineData("mongodb://localhost?journal=false", "majority", false, null, ReadPreferenceMode.Primary, GuidRepresentation.Standard)]
+		[InlineData("mongodb://localhost?uuidRepresentation=javaLegacy", "majority", true, null, ReadPreferenceMode.Primary, GuidRepresentation.JavaLegacy)]
 		public void Get_database_settings(
 			string connectionString, 
 			string w, 
 			bool journal, 
 			ReadConcernLevel? readConcernLevel, 
-			ReadPreferenceMode readPreference)
+			ReadPreferenceMode readPreference,
+			GuidRepresentation guidRepresentation)
 		{
 			var settings = MongoDbEventStore<object>.GetDefaultDatabaseSettings(connectionString);
 
@@ -75,6 +78,7 @@ namespace NEStore.MongoDb.Tests
 				Assert.Equal(readConcernLevel, settings.ReadConcern.Level);
 
 			Assert.Equal(readPreference, settings.ReadPreference.ReadPreferenceMode);
+			Assert.Equal(guidRepresentation, settings.GuidRepresentation);
 		}
 
 	}
