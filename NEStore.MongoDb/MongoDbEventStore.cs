@@ -164,22 +164,29 @@ namespace NEStore.MongoDb
 		/// <returns></returns>
 		public static MongoDatabaseSettings GetDefaultDatabaseSettings(string connectionString)
 		{
-			var supportsCommittedReads = IsCommittedReadsSupported(connectionString);
+			var url = new MongoUrl(connectionString);
+			var supportsCommittedReads = IsCommittedReadsSupported(url);
+
+			ReadConcern readConcern;
+			if (url.ReadConcernLevel.HasValue)
+				readConcern = new ReadConcern(url.ReadConcernLevel);
+			else
+				readConcern = supportsCommittedReads ? ReadConcern.Majority : ReadConcern.Default;
 
 			var dbSettings = new MongoDatabaseSettings()
 			{
 				GuidRepresentation = GuidRepresentation.Standard,
-				WriteConcern = new WriteConcern("majority", journal: true),
-				ReadConcern = supportsCommittedReads ? ReadConcern.Majority : ReadConcern.Default,
-				ReadPreference = ReadPreference.Primary
+				WriteConcern = new WriteConcern(url.W ?? "majority", journal: url.Journal ?? true),
+				ReadConcern = readConcern,
+				ReadPreference = url.ReadPreference ?? ReadPreference.Primary
 			};
 			
 			return dbSettings;
 		}
 
-		private static bool IsCommittedReadsSupported(string connectionString)
+		private static bool IsCommittedReadsSupported(MongoUrl url)
 		{
-			var client = new MongoClient(connectionString);
+			var client = new MongoClient(url);
 			var status = client.GetDatabase("admin")
 				.RunCommand<BsonDocument>(new BsonDocument("serverStatus", 1));
 

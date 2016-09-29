@@ -35,23 +35,47 @@ namespace NEStore.MongoDb.Tests
 			}
 		}
 
-        [Fact]
-        public async Task Ensure_Bucket_delete()
-        {
-            using (var fixture = new MongoDbEventStoreFixture())
-            {
-                await fixture.EventStore.EnsureBucketAsync(fixture.BucketName);
+		[Fact]
+		public async Task Ensure_Bucket_delete()
+		{
+			using (var fixture = new MongoDbEventStoreFixture())
+			{
+				await fixture.EventStore.EnsureBucketAsync(fixture.BucketName);
 
-                var collections = await (await fixture.EventStore.Database.ListCollectionsAsync()).ToListAsync();
+				var collections = await (await fixture.EventStore.Database.ListCollectionsAsync()).ToListAsync();
 
-                Assert.Contains(collections, p => p["name"] == $"{fixture.BucketName}.commits");
+				Assert.Contains(collections, p => p["name"] == $"{fixture.BucketName}.commits");
 
-                await fixture.EventStore.DeleteBucketAsync(fixture.BucketName);
+				await fixture.EventStore.DeleteBucketAsync(fixture.BucketName);
 
-                collections = await (await fixture.EventStore.Database.ListCollectionsAsync()).ToListAsync();
+				collections = await (await fixture.EventStore.Database.ListCollectionsAsync()).ToListAsync();
 
-                Assert.DoesNotContain(collections, p => p["name"] == $"{fixture.BucketName}.commits");
-            }
-        }
-    }
+				Assert.DoesNotContain(collections, p => p["name"] == $"{fixture.BucketName}.commits");
+			}
+		}
+
+		[Theory]
+		[InlineData("mongodb://localhost", "majority", true, null, ReadPreferenceMode.Primary)]
+		[InlineData("mongodb://localhost?readConcernLevel=majority", "majority", true, ReadConcernLevel.Majority, ReadPreferenceMode.Primary)]
+		[InlineData("mongodb://localhost?readPreference=nearest", "majority", true, null, ReadPreferenceMode.Nearest)]
+		[InlineData("mongodb://localhost?w=3", "3", true, null, ReadPreferenceMode.Primary)]
+		[InlineData("mongodb://localhost?journal=false", "majority", false, null, ReadPreferenceMode.Primary)]
+		public void Get_database_settings(
+			string connectionString, 
+			string w, 
+			bool journal, 
+			ReadConcernLevel? readConcernLevel, 
+			ReadPreferenceMode readPreference)
+		{
+			var settings = MongoDbEventStore<object>.GetDefaultDatabaseSettings(connectionString);
+
+			Assert.Equal(w, settings.WriteConcern.W.ToString());
+			Assert.Equal(journal, settings.WriteConcern.Journal);
+			if (readConcernLevel != null)
+				Assert.Equal(readConcernLevel, settings.ReadConcern.Level);
+
+			Assert.Equal(readPreference, settings.ReadPreference.ReadPreferenceMode);
+		}
+
+	}
 }
