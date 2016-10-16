@@ -7,7 +7,7 @@
 NEStore is an event store for .NET Framework. An event store is where events are stored when using the Event Sourcing pattern.
 
 ## Usage
- 
+
 The following packages are available as Nuget packages:
 
 -	[NEStore](https://www.nuget.org/packages/NEStore) - Core interfaces and classes
@@ -16,5 +16,4 @@ The following packages are available as Nuget packages:
 
 ## Documentation
 
-Full documentation is available [here](https://github.com/deltatre-webplu/NEStore/wiki/NEstore-documentation).
-
+Full documentation is available [here](https://github.com/deltatre-webplu/NEStore/wiki).
