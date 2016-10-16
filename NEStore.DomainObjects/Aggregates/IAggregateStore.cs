@@ -1,7 +1,8 @@
 ﻿using System;
 using System.Threading.Tasks;
+using NEStore.DomainObjects.Events;
 
-namespace NEStore.DomainObjects
+namespace NEStore.DomainObjects.Aggregates
 {
 	public interface IAggregateStore
 	{

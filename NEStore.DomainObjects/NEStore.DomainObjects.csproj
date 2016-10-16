@@ -41,12 +41,14 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Aggregate.cs" />
-    <Compile Include="AggregateStore.cs" />
-    <Compile Include="IAggregateStore.cs" />
-    <Compile Include="IEvent.cs" />
-    <Compile Include="IProjection.cs" />
-    <Compile Include="ProjectionBase.cs" />
+    <Compile Include="Aggregates\Aggregate.cs" />
+    <Compile Include="Aggregates\AggregateStore.cs" />
+    <Compile Include="Events\EventDispatcher.cs" />
+    <Compile Include="Aggregates\IAggregateStore.cs" />
+    <Compile Include="Events\IEvent.cs" />
+    <Compile Include="Events\IEventHandler.cs" />
+    <Compile Include="Projections\IProjection.cs" />
+    <Compile Include="Projections\ProjectionBase.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
@@ -56,6 +58,7 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
+    <None Include="NEStore.DomainObjects.nuspec" />
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>

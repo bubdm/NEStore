@@ -56,9 +56,9 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="InMemoryTotalMoviesProjection.cs" />
-    <Compile Include="InMemoryMoviesProjection.cs" />
-    <Compile Include="Movie.cs" />
+    <Compile Include="Projections\InMemoryTotalMoviesProjection.cs" />
+    <Compile Include="Projections\InMemoryMoviesProjection.cs" />
+    <Compile Include="Movies\Movie.cs" />
     <Compile Include="Helpers\ObjectDumper.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
@@ -79,7 +79,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
-    <Compile Include="Movie.Events.cs" />
+    <Compile Include="Movies\Events.cs" />
     <None Include="packages.config" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

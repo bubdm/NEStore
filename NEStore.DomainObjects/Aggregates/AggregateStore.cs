@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Linq;
 using System.Threading.Tasks;
+using NEStore.DomainObjects.Events;
+using NEStore.DomainObjects.Projections;
 
-namespace NEStore.DomainObjects
+namespace NEStore.DomainObjects.Aggregates
 {
 	public class AggregateStore : IAggregateStore
 	{

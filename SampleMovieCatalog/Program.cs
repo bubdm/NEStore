@@ -1,15 +1,16 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Configuration;
 using System.Diagnostics;
-using System.Dynamic;
 using System.Linq;
 using System.Threading.Tasks;
 using MongoDB.Bson.Serialization.Conventions;
-using NEStore.DomainObjects;
+using NEStore.DomainObjects.Aggregates;
+using NEStore.DomainObjects.Events;
 using NEStore.MongoDb;
 using NEStore.MongoDb.Conventions;
 using SampleMovieCatalog.Helpers;
+using SampleMovieCatalog.Movies;
+using SampleMovieCatalog.Projections;
 
 namespace SampleMovieCatalog
 {
@@ -30,7 +31,7 @@ namespace SampleMovieCatalog
 			eventStore.RegisterDispatchers(
 				_moviesProjection = new InMemoryMoviesProjection(),
 				_totalMoviesProjection = new InMemoryTotalMoviesProjection());
-			_store = new AggregateStore(eventStore, "movies");
+			_store = new AggregateStore(eventStore, "sample");
 
 			RebuildAsync().Wait();
 
@@ -181,21 +182,6 @@ namespace SampleMovieCatalog
 			var genre = Console.ReadLine();
 			if (movie.Genre != genre)
 				movie.Genre = genre;
-
-			Console.Write("ExtendedFields: ");
-			var fields = new ExpandoObject();
-			while (true)
-			{
-				Console.Write("Field name: ");
-				var fieldName = Console.ReadLine();
-				if (string.IsNullOrWhiteSpace(fieldName))
-					break;
-				Console.Write("Field value: ");
-				var fieldValue = Console.ReadLine();
-
-				((IDictionary<string, object>) fields)[fieldName] = fieldValue;
-			}
-			movie.ExtendedFields = fields;
 
 			await _store.SaveAsync(movie);
 		}

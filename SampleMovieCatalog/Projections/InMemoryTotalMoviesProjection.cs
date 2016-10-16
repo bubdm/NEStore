@@ -1,23 +1,25 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using NEStore.DomainObjects;
+using NEStore.DomainObjects.Events;
+using NEStore.DomainObjects.Projections;
+using SampleMovieCatalog.Movies;
 
-namespace SampleMovieCatalog
+namespace SampleMovieCatalog.Projections
 {
-	public class InMemoryTotalMoviesProjection : ProjectionBase
+	public class InMemoryTotalMoviesProjection :
+		ProjectionBase,
+		IEventHandler<MovieCreated>
 	{
 		public int TotalMovies => Movies.Count;
 
 		public HashSet<Guid> Movies { get; set; } = new HashSet<Guid>();
 
-		// ReSharper disable UnusedMember.Local
-		private void On(Movie.Created @event)
+		public void On(MovieCreated @event)
 		{
 			if (!Movies.Contains(@event.ObjectId))
 				Movies.Add(@event.ObjectId);
 		}
-		// ReSharper restore UnusedMember.Local
 
 		public override Task ClearAsync()
 		{
