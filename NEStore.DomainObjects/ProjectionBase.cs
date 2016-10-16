@@ -4,9 +4,9 @@ using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 
-namespace NEStore.Aggregates
+namespace NEStore.DomainObjects
 {
-	public abstract class ProjectionBase : IDispatcher<IEvent>
+	public abstract class ProjectionBase : IProjection
 	{
 		private readonly Dictionary<Type, MethodInfo> _eventHandlers;
 

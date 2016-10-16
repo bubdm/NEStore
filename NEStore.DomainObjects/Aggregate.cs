@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace NEStore.Aggregates
+namespace NEStore.DomainObjects
 {
 	public abstract class Aggregate
 	{
@@ -34,7 +34,7 @@ namespace NEStore.Aggregates
 			if (method == null)
 				throw new Exception($"Method 'On({@event.GetType().Name})' not found ");
 
-			method.Invoke(this, new [] { @event });
+			method.Invoke(this, new object[] { @event });
 			Version++;
 		}
 

@@ -11,7 +11,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NEStore.MongoDb.Tests", "NE
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SampleMovieCatalog", "SampleMovieCatalog\SampleMovieCatalog.csproj", "{D441C9B1-D758-49B0-9F01-AC669841A7E7}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NEStore.Aggregates", "NEStore.Aggregates\NEStore.Aggregates.csproj", "{911A8DDE-FD02-4D70-BEAB-86B9E8663BD3}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NEStore.DomainObjects", "NEStore.DomainObjects\NEStore.DomainObjects.csproj", "{911A8DDE-FD02-4D70-BEAB-86B9E8663BD3}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

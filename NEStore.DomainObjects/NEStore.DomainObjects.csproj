@@ -7,8 +7,8 @@
     <ProjectGuid>{911A8DDE-FD02-4D70-BEAB-86B9E8663BD3}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>NEStore.Aggregates</RootNamespace>
-    <AssemblyName>NEStore.Aggregates</AssemblyName>
+    <RootNamespace>NEStore.DomainObjects</RootNamespace>
+    <AssemblyName>NEStore.DomainObjects</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
   </PropertyGroup>
@@ -43,7 +43,9 @@
   <ItemGroup>
     <Compile Include="Aggregate.cs" />
     <Compile Include="AggregateStore.cs" />
+    <Compile Include="IAggregateStore.cs" />
     <Compile Include="IEvent.cs" />
+    <Compile Include="IProjection.cs" />
     <Compile Include="ProjectionBase.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>

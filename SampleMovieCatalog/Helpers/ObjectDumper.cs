@@ -5,12 +5,10 @@ using System.Collections;
 using System.IO;
 using System.Reflection;
 
-// See the ReadMe.html for additional information
-namespace SampleMovieCatalog
+namespace SampleMovieCatalog.Helpers
 {
 	public class ObjectDumper
 	{
-
 		public static void Write(object element)
 		{
 			Write(element, 0);

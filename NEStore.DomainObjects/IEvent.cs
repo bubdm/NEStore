@@ -1,4 +1,4 @@
-﻿namespace NEStore.Aggregates
+﻿namespace NEStore.DomainObjects
 {
 	public interface IEvent
 	{
