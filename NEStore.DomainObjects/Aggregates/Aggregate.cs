@@ -1,14 +1,21 @@
 using System;
 using System.Collections.Generic;
+using NEStore.DomainObjects.Events;
 
-namespace NEStore.Aggregates
+namespace NEStore.DomainObjects.Aggregates
 {
 	public abstract class Aggregate
 	{
+		private readonly EventDispatcher _dispatcher;
 		private readonly List<IEvent> _changes = new List<IEvent>();
 
 		public Guid ObjectId { get; protected set; }
 		public int Version { get; private set; }
+
+		protected Aggregate()
+		{
+			_dispatcher = new EventDispatcher(this);
+		}
 
 		protected void Inflate(IEnumerable<IEvent> events)
 		{
@@ -24,17 +31,10 @@ namespace NEStore.Aggregates
 
 		private void OnEvent(IEvent @event)
 		{
-			var method = GetType()
-				.GetMethod("On", 
-				System.Reflection.BindingFlags.Default | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance, 
-				null, 
-				new[] { @event.GetType() },
-				null);
-
-			if (method == null)
+			var invoked = _dispatcher.TryInvoke(@event);
+			if (!invoked)
 				throw new Exception($"Method 'On({@event.GetType().Name})' not found ");
 
-			method.Invoke(this, new [] { @event });
 			Version++;
 		}
 

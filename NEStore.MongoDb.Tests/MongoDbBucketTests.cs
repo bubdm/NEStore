@@ -49,6 +49,8 @@ namespace NEStore.MongoDb.Tests
 
 				var commits = await fixture.Bucket.GetCommitsAsync(toBucketRevision: 1);
 				Assert.Equal(1, commits.Count());
+
+				await result.DispatchTask;
 			}
 		}
 
@@ -335,13 +337,7 @@ namespace NEStore.MongoDb.Tests
 
 				fixture.Dispatcher.Verify(p => p.DispatchAsync(It.IsAny<string>(), result.Commit), Times.Once());
 
-				try
-				{
-					await result.DispatchTask;
-				}
-				catch (MyException)
-				{
-				}
+				await Assert.ThrowsAsync<MyException>(() => result.DispatchTask);
 
 				Assert.Equal(true, await fixture.Bucket.HasUndispatchedCommitsAsync());
 			}
@@ -358,13 +354,7 @@ namespace NEStore.MongoDb.Tests
 					.Throws(new MyException("Some dispatch exception"));
 				var result = await fixture.Bucket.WriteAsync(streamId, 0, new[] { @event });
 
-				try
-				{
-					await result.DispatchTask;
-				}
-				catch (MyException)
-				{
-				}
+				await Assert.ThrowsAsync<MyException>(() => result.DispatchTask);
 
 				Assert.Equal(true, await fixture.Bucket.HasUndispatchedCommitsAsync());
 
@@ -387,13 +377,7 @@ namespace NEStore.MongoDb.Tests
 					.Throws(new MyException("Some dispatch exception"));
 				var result = await fixture.Bucket.WriteAsync(streamId, 0, new[] { @event });
 
-				try
-				{
-					await result.DispatchTask;
-				}
-				catch (MyException)
-				{
-				}
+				await Assert.ThrowsAsync<MyException>(() => result.DispatchTask);
 
 				Assert.Equal(true, await fixture.Bucket.HasUndispatchedCommitsAsync());
 
@@ -423,13 +407,9 @@ namespace NEStore.MongoDb.Tests
 				fixture.Dispatcher.Setup(p => p.DispatchAsync(It.IsAny<string>(), It.IsAny<CommitData<object>>()))
 					.Throws(new MyException("Some dispatch exception"));
 				var result = await fixture.Bucket.WriteAsync(streamId, 0, new[] { @event });
-				try
-				{
-					await result.DispatchTask;
-				}
-				catch (MyException)
-				{
-				}
+
+				await Assert.ThrowsAsync<MyException>(() => result.DispatchTask);
+
 				Assert.Equal(true, await fixture.Bucket.HasUndispatchedCommitsAsync());
 
 				// Reset mock
@@ -455,13 +435,9 @@ namespace NEStore.MongoDb.Tests
 				fixture.Dispatcher.Setup(p => p.DispatchAsync(It.IsAny<string>(), It.IsAny<CommitData<object>>()))
 					.Throws(new MyException("Some dispatch exception"));
 				var result = await fixture.Bucket.WriteAsync(streamId, 0, new[] { @event });
-				try
-				{
-					await result.DispatchTask;
-				}
-				catch (MyException)
-				{
-				}
+
+				await Assert.ThrowsAsync<MyException>(() => result.DispatchTask);
+
 				Assert.Equal(true, await fixture.Bucket.HasUndispatchedCommitsAsync());
 
 				// Reset mock
@@ -788,9 +764,9 @@ namespace NEStore.MongoDb.Tests
 		public async Task Dictonary_with_non_string_keys_should_be_serialized_without_BsonSerializationException()
 		{
 			ConventionRegistry.Register(
-			nameof(SafeDictionaryKeyConvention),
-			new ConventionPack { new SafeDictionaryKeyConvention() },
-			_ => true);
+				nameof(SafeDictionaryKeyConvention),
+				new ConventionPack { new SafeDictionaryKeyConvention() },
+				_ => true);
 
 			MongoDbSerialization.Register(typeof(EventWithDictionary<DateTime>));
 			MongoDbSerialization.Register(typeof(EventWithDictionary<int>));
@@ -820,9 +796,9 @@ namespace NEStore.MongoDb.Tests
 		public async Task Events_with_readonly_properties_are_serialized()
 		{
 			ConventionRegistry.Register(
-			nameof(ImmutablePocoConvention),
-			new ConventionPack { new ImmutablePocoConvention() },
-			_ => true);
+				nameof(ImmutablePocoConvention),
+				new ConventionPack { new ImmutablePocoConvention() },
+				_ => true);
 
 			using (var fixture = new MongoDbEventStoreFixture<EventWithReadOnlyProperties>())
 			{

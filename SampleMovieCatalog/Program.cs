@@ -1,20 +1,22 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Configuration;
 using System.Diagnostics;
-using System.Dynamic;
 using System.Linq;
 using System.Threading.Tasks;
-using NEStore.Aggregates;
+using MongoDB.Bson.Serialization.Conventions;
+using NEStore.DomainObjects.Aggregates;
+using NEStore.DomainObjects.Events;
 using NEStore.MongoDb;
+using NEStore.MongoDb.Conventions;
+using SampleMovieCatalog.Helpers;
+using SampleMovieCatalog.Movies;
+using SampleMovieCatalog.Projections;
 
 namespace SampleMovieCatalog
 {
 	public static class Program
 	{
-		private const string BucketName = "movies";
 		private static AggregateStore _store;
-		private static MongoDbEventStore<IEvent> _eventStore;
 		private static InMemoryMoviesProjection _moviesProjection;
 		private static InMemoryTotalMoviesProjection _totalMoviesProjection;
 
@@ -22,12 +24,14 @@ namespace SampleMovieCatalog
 
 		public static void Main()
 		{
-			RegisterAllEvents();
-			_eventStore = new MongoDbEventStore<IEvent>(ConfigurationManager.ConnectionStrings["mongoTest"].ConnectionString);
-			_eventStore.RegisterDispatchers(
+			SetupSerialization();
+
+			var mongoDbConnectionString = ConfigurationManager.ConnectionStrings["mongoTest"].ConnectionString;
+			var eventStore = new MongoDbEventStore<IEvent>(mongoDbConnectionString);
+			eventStore.RegisterDispatchers(
 				_moviesProjection = new InMemoryMoviesProjection(),
 				_totalMoviesProjection = new InMemoryTotalMoviesProjection());
-			_store = new AggregateStore(_eventStore.Bucket(BucketName));
+			_store = new AggregateStore(eventStore, "sample");
 
 			RebuildAsync().Wait();
 
@@ -96,12 +100,7 @@ namespace SampleMovieCatalog
 			var timer = new Stopwatch();
 			timer.Start();
 
-			foreach (var projection in _eventStore.GetDispatchers().Cast<ProjectionBase>())
-				await projection.ClearAsync();
-
-			foreach (var c in await _store.GetCommitsAsync())
-				foreach (var projection in _eventStore.GetDispatchers())
-					await projection.DispatchAsync(BucketName, c);
+			await _store.RebuildAsync();
 
 			timer.Stop();
 			Console.WriteLine("Rebuild time: " + timer.Elapsed);
@@ -112,7 +111,7 @@ namespace SampleMovieCatalog
 			Console.Write("BucketRevision: ");
 			var revision = int.Parse(Console.ReadLine() ?? "");
 
-			await _store.RollbackAsync(revision);
+			await _store.Bucket.RollbackAsync(revision);
 			await RebuildAsync();
 		}
 
@@ -127,7 +126,7 @@ namespace SampleMovieCatalog
 
 		private static async Task ListEventsAsync()
 		{
-			var events = await _store.GetEventsAsync();
+			var events = await _store.Bucket.GetEventsAsync();
 			foreach (var e in events)
 				ObjectDumper.Write(e);
 		}
@@ -184,26 +183,16 @@ namespace SampleMovieCatalog
 			if (movie.Genre != genre)
 				movie.Genre = genre;
 
-			Console.Write("ExtendedFields: ");
-			var fields = new ExpandoObject();
-			while (true)
-			{
-				Console.Write("Field name: ");
-				var fieldName = Console.ReadLine();
-				if (string.IsNullOrWhiteSpace(fieldName))
-					break;
-				Console.Write("Field value: ");
-				var fieldValue = Console.ReadLine();
-
-				((IDictionary<string, object>) fields)[fieldName] = fieldValue;
-			}
-			movie.ExtendedFields = fields;
-
 			await _store.SaveAsync(movie);
 		}
 
-		private static void RegisterAllEvents()
+		private static void SetupSerialization()
 		{
+			ConventionRegistry.Register(
+				nameof(ImmutablePocoConvention),
+				new ConventionPack { new ImmutablePocoConvention() },
+				t => typeof(IEvent).IsAssignableFrom(t));
+
 			var events = AppDomain.CurrentDomain.GetAssemblies()
 				.SelectMany(p => p.GetTypes())
 				.Where(p => typeof(IEvent).IsAssignableFrom(p) && p.IsClass && !p.IsAbstract);

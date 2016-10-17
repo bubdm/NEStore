@@ -33,6 +33,18 @@
     <StartupObject />
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="MongoDB.Bson, Version=2.2.4.26, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\MongoDB.Bson.2.2.4\lib\net45\MongoDB.Bson.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="MongoDB.Driver, Version=2.2.4.26, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\MongoDB.Driver.2.2.4\lib\net45\MongoDB.Driver.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="MongoDB.Driver.Core, Version=2.2.4.26, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\MongoDB.Driver.Core.2.2.4\lib\net45\MongoDB.Driver.Core.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Configuration" />
     <Reference Include="System.Core" />
@@ -44,17 +56,17 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="InMemoryTotalMoviesProjection.cs" />
-    <Compile Include="InMemoryMoviesProjection.cs" />
-    <Compile Include="Movie.cs" />
-    <Compile Include="ObjectDumper.cs" />
+    <Compile Include="Projections\InMemoryTotalMoviesProjection.cs" />
+    <Compile Include="Projections\InMemoryMoviesProjection.cs" />
+    <Compile Include="Movies\Movie.cs" />
+    <Compile Include="Helpers\ObjectDumper.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\NEStore.Aggregates\NEStore.Aggregates.csproj">
+    <ProjectReference Include="..\NEStore.DomainObjects\NEStore.DomainObjects.csproj">
       <Project>{911a8dde-fd02-4d70-beab-86b9e8663bd3}</Project>
-      <Name>NEStore.Aggregates</Name>
+      <Name>NEStore.DomainObjects</Name>
     </ProjectReference>
     <ProjectReference Include="..\NEStore.MongoDb\NEStore.MongoDb.csproj">
       <Project>{330f142e-5227-49ee-9dee-e37fd638172d}</Project>
@@ -67,6 +79,8 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
+    <Compile Include="Movies\Events.cs" />
+    <None Include="packages.config" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
