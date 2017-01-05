@@ -5,17 +5,40 @@ using System.Runtime.Serialization;
 using System.Threading.Tasks;
 using MongoDB.Bson.Serialization.Conventions;
 using Moq;
+using NEStore.MongoDb.AutoIncrementStrategies;
 using NEStore.MongoDb.Conventions;
 using Xunit;
 
 namespace NEStore.MongoDb.Tests
 {
-	public class MongoDbBucketTests
+	public class MongoDbBucketTestsLastCommitStrategy : MongoDbBucketTests
 	{
+		public override MongoDbEventStoreFixture<T> CreateFixture<T>()
+		{
+			var f = new MongoDbEventStoreFixture<T>(85);
+			f.EventStore.AutonIncrementStrategy = new IncrementFromLastCommitStrategy();
+			return f;
+		}
+	}
+
+	public class MongoDbBucketTestsCountersStrategy : MongoDbBucketTests
+	{
+		public override MongoDbEventStoreFixture<T> CreateFixture<T>()
+		{
+			var f = new MongoDbEventStoreFixture<T>(33);
+			f.EventStore.AutonIncrementStrategy = new IncrementCountersStrategy<T>(f.EventStore);
+			return f;
+		}
+	}
+
+	public abstract class MongoDbBucketTests
+	{
+		public abstract MongoDbEventStoreFixture<T> CreateFixture<T>();
+
 		[Fact]
 		public async Task Query_empty_collections()
 		{
-			using (var fixture = new MongoDbEventStoreFixture())
+			using (var fixture = CreateFixture<object>())
 			{
 				Assert.Equal(0, (await fixture.Bucket.GetBucketRevisionAsync()));
 				Assert.Equal(0, (await fixture.Bucket.GetStreamRevisionAsync(Guid.NewGuid())));
@@ -30,7 +53,7 @@ namespace NEStore.MongoDb.Tests
 		[Fact]
 		public async Task Write_an_event_and_get_it_back()
 		{
-			using (var fixture = new MongoDbEventStoreFixture())
+			using (var fixture = CreateFixture<object>())
 			{
 				var streamId = Guid.NewGuid();
 
@@ -57,7 +80,7 @@ namespace NEStore.MongoDb.Tests
 		[Fact]
 		public async Task Write_an_event_and_check_for_dispatch()
 		{
-			using (var fixture = new MongoDbEventStoreFixture())
+			using (var fixture = CreateFixture<object>())
 			{
 				var bucket = fixture.BucketName;
 				var streamId = Guid.NewGuid();
@@ -77,7 +100,7 @@ namespace NEStore.MongoDb.Tests
 		[Fact]
 		public async Task WriteAndDispatch_an_event_and_check_for_dispatch()
 		{
-			using (var fixture = new MongoDbEventStoreFixture())
+			using (var fixture = CreateFixture<object>())
 			{
 				var bucket = fixture.BucketName;
 				var streamId = Guid.NewGuid();
@@ -95,7 +118,7 @@ namespace NEStore.MongoDb.Tests
 		[Fact]
 		public async Task Cannot_write_with_revision_less_than_0()
 		{
-			using (var fixture = new MongoDbEventStoreFixture())
+			using (var fixture = CreateFixture<object>())
 			{
 				var streamId = Guid.NewGuid();
 
@@ -108,7 +131,7 @@ namespace NEStore.MongoDb.Tests
 		[Fact]
 		public async Task Cannot_write_with_revision_not_sequential()
 		{
-			using (var fixture = new MongoDbEventStoreFixture())
+			using (var fixture = CreateFixture<object>())
 			{
 				var streamId = Guid.NewGuid();
 
@@ -123,7 +146,7 @@ namespace NEStore.MongoDb.Tests
 		[Fact]
 		public async Task Cannot_write_with_the_same_revision_multiple_times()
 		{
-			using (var fixture = new MongoDbEventStoreFixture())
+			using (var fixture = CreateFixture<object>())
 			{
 				var streamId = Guid.NewGuid();
 
@@ -137,7 +160,7 @@ namespace NEStore.MongoDb.Tests
 		[Fact]
 		public async Task Cannot_write_with_the_same_revision_multiple_times_using_mongo_index()
 		{
-			using (var fixture = new MongoDbEventStoreFixture())
+			using (var fixture = CreateFixture<object>())
 			{
 				var streamId = Guid.NewGuid();
 
@@ -153,7 +176,7 @@ namespace NEStore.MongoDb.Tests
 		[Fact]
 		public async Task Write_multiple_events()
 		{
-			using (var fixture = new MongoDbEventStoreFixture())
+			using (var fixture = CreateFixture<object>())
 			{
 				var streamId = Guid.NewGuid();
 
@@ -181,7 +204,7 @@ namespace NEStore.MongoDb.Tests
 		[Fact]
 		public async Task Write_multiple_commits()
 		{
-			using (var fixture = new MongoDbEventStoreFixture())
+			using (var fixture = CreateFixture<object>())
 			{
 				var streamId = Guid.NewGuid();
 
@@ -211,7 +234,7 @@ namespace NEStore.MongoDb.Tests
 		[Fact]
 		public async Task Write_multiple_commits_with_multiple_events_on_same_stream()
 		{
-			using (var fixture = new MongoDbEventStoreFixture())
+			using (var fixture = CreateFixture<object>())
 			{
 				var streamId = Guid.NewGuid();
 
@@ -245,7 +268,7 @@ namespace NEStore.MongoDb.Tests
 		[Fact]
 		public async Task Write_multiple_streams()
 		{
-			using (var fixture = new MongoDbEventStoreFixture())
+			using (var fixture = CreateFixture<object>())
 			{
 				var streamId1 = Guid.NewGuid();
 				var streamId2 = Guid.NewGuid();
@@ -278,7 +301,7 @@ namespace NEStore.MongoDb.Tests
 		[Fact]
 		public async Task Rollback()
 		{
-			using (var fixture = new MongoDbEventStoreFixture())
+			using (var fixture = CreateFixture<object>())
 			{
 				var streamId = Guid.NewGuid();
 
@@ -300,7 +323,7 @@ namespace NEStore.MongoDb.Tests
 		[Fact]
 		public async Task When_rollback_then_next_commit_should_the_right_bucket_revision()
 		{
-			using (var fixture = new MongoDbEventStoreFixture())
+			using (var fixture = CreateFixture<object>())
 			{
 				var streamId = Guid.NewGuid();
 
@@ -322,9 +345,28 @@ namespace NEStore.MongoDb.Tests
 		}
 
 		[Fact]
+		public async Task When_rollback_an_empty_bucket_no_error_is_thrown()
+		{
+			using (var fixture = CreateFixture<object>())
+			{
+				var streamId = Guid.NewGuid();
+
+				await fixture.Bucket.RollbackAsync(0);
+
+				await fixture.Bucket.WriteAndDispatchAsync(streamId, 1, new[] { new { n1 = "v3" } });
+
+				var commits = (await fixture.Bucket.GetCommitsAsync(streamId)).ToList();
+				Assert.Equal(1, commits.Count);
+				Assert.Equal(1, commits.ElementAt(0).BucketRevision);
+
+				Assert.Equal("v3", ((dynamic)commits.ElementAt(0).Events.First()).n1);
+			}
+		}
+
+		[Fact]
 		public async Task If_dispatch_fail_commits_is_marked_as_undispatched()
 		{
-			using (var fixture = new MongoDbEventStoreFixture())
+			using (var fixture = CreateFixture<object>())
 			{
 				var streamId = Guid.NewGuid();
 
@@ -346,7 +388,7 @@ namespace NEStore.MongoDb.Tests
 		[Fact]
 		public async Task Undispatch_events_block_write_on_same_bucket()
 		{
-			using (var fixture = new MongoDbEventStoreFixture())
+			using (var fixture = CreateFixture<object>())
 			{
 				var streamId = Guid.NewGuid();
 				var @event = new { n1 = "v1" };
@@ -369,7 +411,7 @@ namespace NEStore.MongoDb.Tests
 		[Fact]
 		public async Task Undispatch_events_doesnt_block_write_on_other_buckets()
 		{
-			using (var fixture = new MongoDbEventStoreFixture())
+			using (var fixture = CreateFixture<object>())
 			{
 				var streamId = Guid.NewGuid();
 				var @event = new { n1 = "v1" };
@@ -381,7 +423,7 @@ namespace NEStore.MongoDb.Tests
 
 				Assert.Equal(true, await fixture.Bucket.HasUndispatchedCommitsAsync());
 
-				using (var fixtureBucket2 = new MongoDbEventStoreFixture())
+				using (var fixtureBucket2 = CreateFixture<object>())
 				{
 					var streamId2 = Guid.NewGuid();
 					var @event2 = new { n1 = "v1" };
@@ -397,7 +439,7 @@ namespace NEStore.MongoDb.Tests
 		[Fact]
 		public async Task Can_redispatch_undispatched_events()
 		{
-			using (var fixture = new MongoDbEventStoreFixture())
+			using (var fixture = CreateFixture<object>())
 			{
 				var streamId = Guid.NewGuid();
 
@@ -425,7 +467,7 @@ namespace NEStore.MongoDb.Tests
 		[Fact]
 		public async Task Can_set_undispatched_events_as_dispatched()
 		{
-			using (var fixture = new MongoDbEventStoreFixture())
+			using (var fixture = CreateFixture<object>())
 			{
 				var streamId = Guid.NewGuid();
 
@@ -452,7 +494,7 @@ namespace NEStore.MongoDb.Tests
 		[Fact]
 		public async Task Cannot_write_new_event_if_undispatched_events_are_found()
 		{
-			using (var fixture = new MongoDbEventStoreFixture())
+			using (var fixture = CreateFixture<object>())
 			{
 				var streamId = Guid.NewGuid();
 
@@ -479,7 +521,7 @@ namespace NEStore.MongoDb.Tests
 		[Fact]
 		public async Task Should_dispatch_undispatched_events_at_next_write_and_cannot_write_new_event()
 		{
-			using (var fixture = new MongoDbEventStoreFixture())
+			using (var fixture = CreateFixture<object>())
 			{
 				var streamId = Guid.NewGuid();
 
@@ -504,7 +546,7 @@ namespace NEStore.MongoDb.Tests
 		[Fact]
 		public async Task Should_dispatch_undispatched_events_at_next_write()
 		{
-			using (var fixture = new MongoDbEventStoreFixture())
+			using (var fixture = CreateFixture<object>())
 			{
 				var streamId = Guid.NewGuid();
 
@@ -531,7 +573,7 @@ namespace NEStore.MongoDb.Tests
 		[Fact]
 		public async Task Get_all_events_in_a_bucket()
 		{
-			using (var fixture = new MongoDbEventStoreFixture())
+			using (var fixture = CreateFixture<object>())
 			{
 				var streamId = Guid.NewGuid();
 				var streamId2 = Guid.NewGuid();
@@ -561,7 +603,7 @@ namespace NEStore.MongoDb.Tests
 		[Fact]
 		public async Task It_should_not_return_events_with_invalid_arguments()
 		{
-			using (var fixture = new MongoDbEventStoreFixture())
+			using (var fixture = CreateFixture<object>())
 			{
 				var streamId = Guid.NewGuid();
 
@@ -579,7 +621,7 @@ namespace NEStore.MongoDb.Tests
 		[Fact]
 		public async Task It_should_not_return_events_for_stream_with_invalid_arguments()
 		{
-			using (var fixture = new MongoDbEventStoreFixture())
+			using (var fixture = CreateFixture<object>())
 			{
 				var streamId = Guid.NewGuid();
 
@@ -607,7 +649,7 @@ namespace NEStore.MongoDb.Tests
 		[Fact]
 		public async Task Get_events_for_stream()
 		{
-			using (var fixture = new MongoDbEventStoreFixture())
+			using (var fixture = CreateFixture<object>())
 			{
 				var streamId = Guid.NewGuid();
 
@@ -676,7 +718,7 @@ namespace NEStore.MongoDb.Tests
 		[Fact]
 		public async Task Get_events_with_pagination_from_bucket()
 		{
-			using (var fixture = new MongoDbEventStoreFixture())
+			using (var fixture = CreateFixture<object>())
 			{
 				for (var i = 1; i <= 20; i++)
 				{
@@ -729,7 +771,7 @@ namespace NEStore.MongoDb.Tests
 		[Fact]
 		public async Task Get_commits_with_pagination_from_bucket()
 		{
-			using (var fixture = new MongoDbEventStoreFixture())
+			using (var fixture = CreateFixture<object>())
 			{
 				for (var i = 1; i <= 20; i++)
 				{
@@ -771,7 +813,7 @@ namespace NEStore.MongoDb.Tests
 			MongoDbSerialization.Register(typeof(EventWithDictionary<DateTime>));
 			MongoDbSerialization.Register(typeof(EventWithDictionary<int>));
 
-			using (var fixture = new MongoDbEventStoreFixture())
+			using (var fixture = CreateFixture<object>())
 			{
 				var streamId = Guid.NewGuid();
 				var @event = new EventWithDictionary<DateTime>();
@@ -800,7 +842,7 @@ namespace NEStore.MongoDb.Tests
 				new ConventionPack { new ImmutablePocoConvention() },
 				_ => true);
 
-			using (var fixture = new MongoDbEventStoreFixture<EventWithReadOnlyProperties>())
+			using (var fixture = CreateFixture<EventWithReadOnlyProperties>())
 			{
 				var streamId = Guid.NewGuid();
 				var @event = new EventWithReadOnlyProperties("test1");
@@ -819,7 +861,7 @@ namespace NEStore.MongoDb.Tests
 			new ConventionPack { new ImmutablePocoConvention() },
 			_ => true);
 
-			using (var fixture = new MongoDbEventStoreFixture<ImmutablePocoSample>())
+			using (var fixture = CreateFixture<ImmutablePocoSample>())
 			{
 				var streamId = Guid.NewGuid();
 				var @event1 = new ImmutablePocoSample("Icardi");

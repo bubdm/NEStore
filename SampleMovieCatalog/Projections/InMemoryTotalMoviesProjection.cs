@@ -11,20 +11,34 @@ namespace SampleMovieCatalog.Projections
 		ProjectionBase,
 		IEventHandler<MovieCreated>
 	{
-		public int TotalMovies => Movies.Count;
-
-		public HashSet<Guid> Movies { get; set; } = new HashSet<Guid>();
+		private readonly HashSet<Guid> _movies = new HashSet<Guid>();
+		public int TotalMovies
+		{
+			get
+			{
+				lock (_movies)
+				{
+					return _movies.Count;
+				}
+			}
+		}
 
 		public void On(MovieCreated @event)
 		{
-			if (!Movies.Contains(@event.ObjectId))
-				Movies.Add(@event.ObjectId);
+			lock (_movies)
+			{
+				if (!_movies.Contains(@event.ObjectId))
+					_movies.Add(@event.ObjectId);
+			}
 		}
 
 		public override Task ClearAsync()
 		{
-			Movies.Clear();
-			return Task.FromResult(false);
+			lock (_movies)
+			{
+				_movies.Clear();
+				return Task.FromResult(false);
+			}
 		}
 	}
 }

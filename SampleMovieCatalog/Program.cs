@@ -1,13 +1,17 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Configuration;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using MongoDB.Bson.Serialization.Conventions;
+using NEStore;
 using NEStore.DomainObjects.Aggregates;
 using NEStore.DomainObjects.Events;
 using NEStore.MongoDb;
+using NEStore.MongoDb.AutoIncrementStrategies;
 using NEStore.MongoDb.Conventions;
+using Polly;
 using SampleMovieCatalog.Helpers;
 using SampleMovieCatalog.Movies;
 using SampleMovieCatalog.Projections;
@@ -17,21 +21,29 @@ namespace SampleMovieCatalog
 	public static class Program
 	{
 		private static AggregateStore _store;
+		private static MongoDbEventStore<IEvent> _eventStore;
 		private static InMemoryMoviesProjection _moviesProjection;
 		private static InMemoryTotalMoviesProjection _totalMoviesProjection;
 
-		// TODO Implement retry logic
-
+		private static readonly Policy _retryPolicy = Policy
+			.Handle<Exception>(ex =>  ex is ConcurrencyWriteException || ex is UndispatchedEventsFoundException)
+			.RetryForeverAsync(ex =>
+			{
+				Console.WriteLine($"Retry exception: {ex.Message}");
+			});
+		
 		public static void Main()
 		{
 			SetupSerialization();
 
 			var mongoDbConnectionString = ConfigurationManager.ConnectionStrings["mongoTest"].ConnectionString;
-			var eventStore = new MongoDbEventStore<IEvent>(mongoDbConnectionString);
-			eventStore.RegisterDispatchers(
+			_eventStore = new MongoDbEventStore<IEvent>(mongoDbConnectionString);
+			_eventStore.AutonIncrementStrategy = new IncrementCountersStrategy<IEvent>(_eventStore);
+			_eventStore.RegisterDispatchers(
 				_moviesProjection = new InMemoryMoviesProjection(),
 				_totalMoviesProjection = new InMemoryTotalMoviesProjection());
-			_store = new AggregateStore(eventStore, "sample");
+
+			_store = new AggregateStore(_eventStore, "sample");
 
 			RebuildAsync().Wait();
 
@@ -43,12 +55,14 @@ namespace SampleMovieCatalog
 				Console.WriteLine("Actions:");
 				Console.WriteLine(" -i: Insert a movie");
 				Console.WriteLine(" -b: Bulk insert movies");
+				Console.WriteLine(" -a: Parallel bulk insert movies");
 				Console.WriteLine(" -u: Update movie");
 				Console.WriteLine(" -l: List events");
 				Console.WriteLine(" -p: Print movies");
 				Console.WriteLine(" -t: Total movies");
 				Console.WriteLine(" -m: Load movie aggregate");
 				Console.WriteLine(" -r: Rollback");
+				Console.WriteLine(" -s: Change auto-increment strategy");
 				Console.WriteLine(" -e: Exit");
 				Console.Write("Choose an action: ");
 				switch (Console.ReadLine())
@@ -58,6 +72,9 @@ namespace SampleMovieCatalog
 						break;
 					case "b":
 						BulkInsertMoviesAsync().Wait();
+						break;
+					case "a":
+						ParallelBulkInsertMoviesAsync().Wait();
 						break;
 					case "u":
 						UpdateMovieAsync().Wait();
@@ -76,6 +93,9 @@ namespace SampleMovieCatalog
 						break;
 					case "t":
 						TotalMovies();
+						break;
+					case "s":
+						ChangeStrategyAsync().Wait();
 						break;
 					case "e":
 						return;
@@ -151,6 +171,38 @@ namespace SampleMovieCatalog
 			var count = int.Parse(Console.ReadLine() ?? "1");
 
 			timer.Start();
+
+			await InsertMoviesAsync(0, count);
+
+			timer.Stop();
+			Console.WriteLine("Elapsed: " + timer.Elapsed);
+		}
+
+		private static async Task ParallelBulkInsertMoviesAsync()
+		{
+			var timer = new Stopwatch();
+
+			Console.Write("How many parallels: ");
+			var parallels = int.Parse(Console.ReadLine() ?? "1");
+
+			Console.Write("How many items: ");
+			var count = int.Parse(Console.ReadLine() ?? "1");
+
+			timer.Start();
+			var tasks = new List<Task>();
+			for(var i = 0; i < parallels; i++)
+				tasks.Add(InsertMoviesAsync(i, count));
+
+			await Task.WhenAll(tasks);
+
+			timer.Stop();
+			Console.WriteLine("Elapsed: " + timer.Elapsed);
+		}
+
+		private static async Task InsertMoviesAsync(int iteration, int count)
+		{
+			var timer = new Stopwatch();
+			timer.Start();
 			for (var i = 0; i < count; i++)
 			{
 				var movie = new Movie(Guid.NewGuid())
@@ -159,12 +211,14 @@ namespace SampleMovieCatalog
 					Genre = Guid.NewGuid().ToString()
 				};
 
-				var result = await _store.SaveAsync(movie);
-
+				var result = await _retryPolicy.ExecuteAsync(() =>
+					 _store.SaveAsync(movie)
+				).ConfigureAwait(false);
+				
 				await result.DispatchTask;
 			}
 			timer.Stop();
-			Console.WriteLine("Elapsed: " + timer.Elapsed);
+			Console.WriteLine($"Iteration {iteration} elapsed: {timer.Elapsed}");
 		}
 
 		private static async Task UpdateMovieAsync()
@@ -184,6 +238,23 @@ namespace SampleMovieCatalog
 				movie.Genre = genre;
 
 			await _store.SaveAsync(movie);
+		}
+
+		private static async Task ChangeStrategyAsync()
+		{
+			Console.WriteLine("Auto-increment strategies available:");
+			Console.WriteLine("\t1) From Last commit");
+			Console.WriteLine("\t2) From Counter");
+			Console.Write("Strategy: ");
+			var count = int.Parse(Console.ReadLine() ?? "1");
+
+			if (count == 1)
+				_eventStore.AutonIncrementStrategy = new IncrementFromLastCommitStrategy();
+
+			if (count == 2)
+				_eventStore.AutonIncrementStrategy = new IncrementCountersStrategy<IEvent>(_eventStore);
+			
+			await RebuildAsync();
 		}
 
 		private static void SetupSerialization()

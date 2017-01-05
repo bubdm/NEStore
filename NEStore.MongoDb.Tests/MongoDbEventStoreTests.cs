@@ -17,7 +17,7 @@ namespace NEStore.MongoDb.Tests
 		[InlineData("5test")]
 		public async Task Bucket_name_should_be_valid(string bucketName)
 		{
-			using (var fixture = new MongoDbEventStoreFixture())
+			using (var fixture = new MongoDbEventStoreFixture<object>())
 			{
 				await Assert.ThrowsAsync<ArgumentException>(() => fixture.EventStore.EnsureBucketAsync(bucketName));
 			}
@@ -26,7 +26,7 @@ namespace NEStore.MongoDb.Tests
 		[Fact]
 		public async Task EnsureBucket_create_required_collections()
 		{
-			using (var fixture = new MongoDbEventStoreFixture())
+			using (var fixture = new MongoDbEventStoreFixture<object>())
 			{
 				await fixture.EventStore.EnsureBucketAsync(fixture.BucketName);
 
@@ -39,7 +39,7 @@ namespace NEStore.MongoDb.Tests
 		[Fact]
 		public async Task Ensure_Bucket_delete()
 		{
-			using (var fixture = new MongoDbEventStoreFixture())
+			using (var fixture = new MongoDbEventStoreFixture<object>())
 			{
 				await fixture.EventStore.EnsureBucketAsync(fixture.BucketName);
 

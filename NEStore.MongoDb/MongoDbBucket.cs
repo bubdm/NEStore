@@ -49,7 +49,7 @@ namespace NEStore.MongoDb
 
 			var eventsArray = events.ToArray();
 
-			var commit = CreateCommitAsync(streamId, expectedStreamRevision, eventsArray, lastCommit?.BucketRevision ?? 0);
+			var commit = await CreateCommitAsync(streamId, expectedStreamRevision, eventsArray, lastCommit).ConfigureAwait(false);
 
 			try
 			{
@@ -58,8 +58,8 @@ namespace NEStore.MongoDb
 			}
 			catch (MongoWriteException ex)
 			{
-				if (IsMongoExceptionDuplicateKey(ex))
-					throw new ConcurrencyWriteException("Someone else is working on the same bucket or stream", ex);
+				if (ex.IsDuplicateKeyException())
+					throw new ConcurrencyWriteException($"Someone else is working on the same bucket ({BucketName}) or stream ({commit.StreamId})", ex);
 			}
 
 			var dispatchTask = DispatchCommitAsync(commit);
@@ -102,10 +102,12 @@ namespace NEStore.MongoDb
 		/// Delete all commits succeeding the revision provided
 		/// </summary>
 		/// <param name="bucketRevision">Revision of last commit to keep</param>
-		public Task RollbackAsync(long bucketRevision)
+		public async Task RollbackAsync(long bucketRevision)
 		{
-			return Collection
-				.DeleteManyAsync(p => p.BucketRevision > bucketRevision);
+			await Collection
+				.DeleteManyAsync(p => p.BucketRevision > bucketRevision).ConfigureAwait(false);
+
+			await _eventStore.AutonIncrementStrategy.RollbackAsync(BucketName, bucketRevision).ConfigureAwait(false);
 		}
 
 		/// <summary>
@@ -151,7 +153,7 @@ namespace NEStore.MongoDb
 				.Sort(Builders<CommitData<T>>.Sort.Ascending(p => p.BucketRevision))
 				.ToListAsync()
 				.ConfigureAwait(false);
-
+			
 			var events = commits
 				.SelectMany(c => c.Events)
 				.ToList();
@@ -268,13 +270,17 @@ namespace NEStore.MongoDb
 		/// <param name="streamId">Unique stream identifier</param>
 		/// <param name="expectedStreamRevision">Expected revision of the provided stream</param>
 		/// <param name="eventsArray">List of events to commit</param>
-		/// <param name="bucketRevision">Current bucket revision</param>
+		/// <param name="lastCommit">Last commit written to current bucket</param>
 		/// <returns>CommitData object</returns>
-		private static CommitData<T> CreateCommitAsync(Guid streamId, int expectedStreamRevision, T[] eventsArray, long bucketRevision)
+		private async Task<CommitData<T>> CreateCommitAsync(Guid streamId, int expectedStreamRevision, T[] eventsArray, CommitInfo lastCommit)
 		{
+			var bucketRevision =await _eventStore.AutonIncrementStrategy
+																	.IncrementAsync(BucketName, lastCommit)
+																	.ConfigureAwait(false);
+
 			var commit = new CommitData<T>
 			{
-				BucketRevision = bucketRevision + 1,
+				BucketRevision = bucketRevision,
 				Dispatched = false,
 				Events = eventsArray,
 				StreamId = streamId,
@@ -350,7 +356,7 @@ namespace NEStore.MongoDb
 
 		private async Task<CommitInfo> DispatchLastCommitAsync()
 		{
-			await Task.Delay(TimeSpan.FromSeconds(5))
+			await Task.Delay(_eventStore.AutoDispatchWaitTime)
 				.ConfigureAwait(false);
 
 			var lastCommit = await GetLastCommitAsync()
@@ -370,16 +376,6 @@ namespace NEStore.MongoDb
 
 			return await GetLastCommitAsync()
 				.ConfigureAwait(false);
-		}
-
-		/// <summary>
-		/// Checks the reason of a MongoWriteException
-		/// </summary>
-		/// <param name="ex">Thrown exception</param>
-		/// <returns>True if the exception is a Duplicate Key Exception, otherwise false</returns>
-		private static bool IsMongoExceptionDuplicateKey(MongoWriteException ex)
-		{
-			return ex.WriteError != null && ex.WriteError.Code == 11000;
 		}
 
 		/// <summary>

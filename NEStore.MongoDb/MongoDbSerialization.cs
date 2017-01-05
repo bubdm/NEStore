@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Linq;
 using MongoDB.Bson.Serialization;
+using NEStore.MongoDb.AutoIncrementStrategies;
 
 namespace NEStore.MongoDb
 {
@@ -12,6 +13,13 @@ namespace NEStore.MongoDb
 			BsonClassMap.RegisterClassMap<CommitInfo>(cm =>
 			{
 				cm.MapIdProperty(c => c.BucketRevision);
+				cm.AutoMap();
+				cm.SetIgnoreExtraElements(true);
+			});
+
+			BsonClassMap.RegisterClassMap<Counter>(cm =>
+			{
+				cm.MapIdProperty(c => c.BucketName);
 				cm.AutoMap();
 				cm.SetIgnoreExtraElements(true);
 			});

@@ -5,6 +5,7 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using NEStore.MongoDb.AutoIncrementStrategies;
 
 namespace NEStore.MongoDb
 {
@@ -27,9 +28,17 @@ namespace NEStore.MongoDb
 		/// </summary>
 		public bool AutoDispatchUndispatchedOnWrite { get; set; } = true;
 		/// <summary>
+		/// When undispatched events are found, wait and double-check for undispatched status. Default is 1s.
+		/// </summary>
+		public TimeSpan AutoDispatchWaitTime { get; set; } = TimeSpan.FromSeconds(1);
+		/// <summary>
 		/// Manually check for stream revision validity before writing any data. Default is true.
 		/// </summary>
 		public bool CheckStreamRevisionBeforeWriting { get; set; } = true;
+		/// <summary>
+		/// 
+		/// </summary>
+		public IAutoIncrementStrategy AutonIncrementStrategy { get; set; }
 
 		static MongoDbEventStore()
 		{
@@ -50,6 +59,8 @@ namespace NEStore.MongoDb
 			
 			var client = new MongoClient(url.ToMongoUrl());
 			Database = client.GetDatabase(url.DatabaseName, settings);
+
+			AutonIncrementStrategy = new IncrementCountersStrategy<T>(this);
 		}
 
 		/// <summary>
@@ -83,6 +94,8 @@ namespace NEStore.MongoDb
 		{
 			await Database.DropCollectionAsync(CollectionNameFromBucket(bucketName))
 										.ConfigureAwait(false);
+
+			await AutonIncrementStrategy.DeleteBucketAsync(bucketName).ConfigureAwait(false);
 		}
 
 		/// <summary>

@@ -6,13 +6,6 @@ using Moq;
 
 namespace NEStore.MongoDb.Tests
 {
-	public class MongoDbEventStoreFixture : MongoDbEventStoreFixture<object>
-	{
-		public MongoDbEventStoreFixture(int dispatchDelay = 50) : base(dispatchDelay)
-		{
-		}
-	}
-
 	public class MongoDbEventStoreFixture<T> : IDisposable
 	{
 		public string BucketName { get; }
@@ -20,9 +13,9 @@ namespace NEStore.MongoDb.Tests
 		public MongoDbBucket<T> Bucket { get; }
 		public Mock<IDispatcher<T>> Dispatcher { get; }
 
-		public MongoDbEventStoreFixture(int dispatchDelay = 50)
+		public MongoDbEventStoreFixture(int? seed = null, int dispatchDelay = 50)
 		{
-			BucketName = RandomString(10);
+			BucketName = RandomString((seed ?? 0) + (int)DateTime.Now.Ticks, 10);
 			EventStore = CreateTarget();
 			Dispatcher = new Mock<IDispatcher<T>>();
 
@@ -50,10 +43,10 @@ namespace NEStore.MongoDb.Tests
 			return new MongoDbEventStore<T>(cns);
 		}
 
-		private static string RandomString(int length)
+		private static string RandomString(int seed, int length)
 		{
 			const string chars = "abcdefghijklmnopqrstuvwxyz";
-			var random = new Random();
+			var random = new Random(seed);
 			return new string(Enumerable.Repeat(chars, length)
 				.Select(s => s[random.Next(s.Length)]).ToArray());
 		}

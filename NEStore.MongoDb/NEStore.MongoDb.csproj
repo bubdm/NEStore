@@ -53,11 +53,16 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="AutoIncrementStrategies\Counter.cs" />
+    <Compile Include="AutoIncrementStrategies\IAutoIncrementStrategy.cs" />
+    <Compile Include="AutoIncrementStrategies\IncrementCountersStrategy.cs" />
+    <Compile Include="AutoIncrementStrategies\IncrementFromLastCommitStrategy.cs" />
     <Compile Include="Conventions\ImmutablePocoConvention.cs" />
     <Compile Include="Conventions\SafeDictionaryKeyConvention.cs" />
     <Compile Include="MongoDbSerialization.cs" />
     <Compile Include="MongoDbBucket.cs" />
     <Compile Include="MongoDbEventStore.cs" />
+    <Compile Include="MongoExceptionExtension.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>

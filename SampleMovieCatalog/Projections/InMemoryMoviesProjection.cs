@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using NEStore.DomainObjects.Events;
 using NEStore.DomainObjects.Projections;
@@ -15,19 +16,48 @@ namespace SampleMovieCatalog.Projections
 	{
 		private readonly Dictionary<Guid, MovieContract> _movies = new Dictionary<Guid, MovieContract>();
 
-		public IEnumerable<MovieContract> Movies => _movies.Values;
+		public IEnumerable<MovieContract> Movies
+		{
+			get
+			{
+				lock (_movies)
+				{
+					return _movies.Values.ToList();
+				}
+			}
+		}
 
 		public void On(MovieCreated @event)
 		{
-			if (!_movies.ContainsKey(@event.ObjectId))
-				_movies.Add(@event.ObjectId,	new MovieContract {Id = @event.ObjectId});
+			lock (_movies)
+			{
+				if (!_movies.ContainsKey(@event.ObjectId))
+					_movies.Add(@event.ObjectId, new MovieContract {Id = @event.ObjectId});
+			}
 		}
-		public void On(MovieTitleSet @event) => _movies[@event.ObjectId].Title = @event.Title;
-		public void On(MovieGenreSet @event) => _movies[@event.ObjectId].Genre = @event.Genre;
+
+		public void On(MovieTitleSet @event)
+		{
+			lock (_movies)
+			{
+				_movies[@event.ObjectId].Title = @event.Title;
+			}
+		}
+
+		public void On(MovieGenreSet @event)
+		{
+			lock (_movies)
+			{
+				_movies[@event.ObjectId].Genre = @event.Genre;
+			}
+		}
 
 		public override Task ClearAsync()
 		{
-			_movies.Clear();
+			lock (_movies)
+			{
+				_movies.Clear();
+			}
 			return Task.FromResult(false);
 		}
 	}
