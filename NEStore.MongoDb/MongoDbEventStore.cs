@@ -186,10 +186,14 @@ namespace NEStore.MongoDb
 			else
 				readConcern = supportsCommittedReads ? ReadConcern.Majority : ReadConcern.Default;
 
+			var writeConcern = url.W != null
+				? new WriteConcern(w: url.W, journal: url.Journal ?? true)
+				: new WriteConcern(journal: url.Journal ?? true);
+
 			var dbSettings = new MongoDatabaseSettings()
 			{
 				GuidRepresentation = connectionString.Contains("uuidRepresentation=") ? url.GuidRepresentation : GuidRepresentation.Standard,
-				WriteConcern = new WriteConcern(journal: url.Journal ?? true),
+				WriteConcern = writeConcern,
 				ReadConcern = readConcern,
 				ReadPreference = url.ReadPreference ?? ReadPreference.Primary
 			};

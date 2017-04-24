@@ -56,12 +56,12 @@ namespace NEStore.MongoDb.Tests
 		}
 
 		[Theory]
-		[InlineData("mongodb://localhost", "majority", true, null, ReadPreferenceMode.Primary, GuidRepresentation.Standard)]
-		[InlineData("mongodb://localhost?readConcernLevel=majority", "majority", true, ReadConcernLevel.Majority, ReadPreferenceMode.Primary, GuidRepresentation.Standard)]
-		[InlineData("mongodb://localhost?readPreference=nearest", "majority", true, null, ReadPreferenceMode.Nearest, GuidRepresentation.Standard)]
+		[InlineData("mongodb://localhost?w=majority", "majority", true, null, ReadPreferenceMode.Primary, GuidRepresentation.Standard)]
+		[InlineData("mongodb://localhost?readConcernLevel=majority", null, true, ReadConcernLevel.Majority, ReadPreferenceMode.Primary, GuidRepresentation.Standard)]
+		[InlineData("mongodb://localhost?readPreference=nearest", null, true, null, ReadPreferenceMode.Nearest, GuidRepresentation.Standard)]
 		[InlineData("mongodb://localhost?w=3", "3", true, null, ReadPreferenceMode.Primary, GuidRepresentation.Standard)]
-		[InlineData("mongodb://localhost?journal=false", "majority", false, null, ReadPreferenceMode.Primary, GuidRepresentation.Standard)]
-		[InlineData("mongodb://localhost?uuidRepresentation=javaLegacy", "majority", true, null, ReadPreferenceMode.Primary, GuidRepresentation.JavaLegacy)]
+		[InlineData("mongodb://localhost?journal=false", null, false, null, ReadPreferenceMode.Primary, GuidRepresentation.Standard)]
+		[InlineData("mongodb://localhost?uuidRepresentation=javaLegacy", null, true, null, ReadPreferenceMode.Primary, GuidRepresentation.JavaLegacy)]
 		public void Get_database_settings(
 			string connectionString, 
 			string w, 
@@ -72,7 +72,11 @@ namespace NEStore.MongoDb.Tests
 		{
 			var settings = MongoDbEventStore<object>.GetDefaultDatabaseSettings(connectionString);
 
-			Assert.Equal(w, settings.WriteConcern.W.ToString());
+			if(string.IsNullOrEmpty(w))
+				Assert.Null(settings.WriteConcern.W);
+			else
+				Assert.Equal(w, settings.WriteConcern.W.ToString());
+
 			Assert.Equal(journal, settings.WriteConcern.Journal);
 			if (readConcernLevel != null)
 				Assert.Equal(readConcernLevel, settings.ReadConcern.Level);
