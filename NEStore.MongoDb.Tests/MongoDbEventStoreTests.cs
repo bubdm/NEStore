@@ -56,6 +56,8 @@ namespace NEStore.MongoDb.Tests
 		}
 
 		[Theory]
+		[InlineData("mongodb://localhost", null, true, null, ReadPreferenceMode.Primary, GuidRepresentation.Standard)]
+		[InlineData("mongodb://localhost?w=majority&readConcernLevel=majority", "majority", true, ReadConcernLevel.Majority, ReadPreferenceMode.Primary, GuidRepresentation.Standard)]
 		[InlineData("mongodb://localhost?w=majority", "majority", true, null, ReadPreferenceMode.Primary, GuidRepresentation.Standard)]
 		[InlineData("mongodb://localhost?readConcernLevel=majority", null, true, ReadConcernLevel.Majority, ReadPreferenceMode.Primary, GuidRepresentation.Standard)]
 		[InlineData("mongodb://localhost?readPreference=nearest", null, true, null, ReadPreferenceMode.Nearest, GuidRepresentation.Standard)]
@@ -78,8 +80,11 @@ namespace NEStore.MongoDb.Tests
 				Assert.Equal(w, settings.WriteConcern.W.ToString());
 
 			Assert.Equal(journal, settings.WriteConcern.Journal);
+
 			if (readConcernLevel != null)
 				Assert.Equal(readConcernLevel, settings.ReadConcern.Level);
+			else
+				Assert.Null(settings.ReadConcern.Level);
 
 			Assert.Equal(readPreference, settings.ReadPreference.ReadPreferenceMode);
 			Assert.Equal(guidRepresentation, settings.GuidRepresentation);

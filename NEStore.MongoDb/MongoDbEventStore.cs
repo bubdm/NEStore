@@ -170,21 +170,21 @@ namespace NEStore.MongoDb
 		/// Get the default mongodb settings used.
 		/// Default values:
 		/// 	GuidRepresentation = Standard,
-		///		WriteConcern = Majority with journal,
-		///		ReadConcern = Majority,
+		///		WriteConcern = 1 with journal,
+		///		ReadConcern = local,
 		///		ReadPreference = Primary
 		/// </summary>
 		/// <returns></returns>
 		public static MongoDatabaseSettings GetDefaultDatabaseSettings(string connectionString)
 		{
 			var url = new MongoUrl(connectionString);
-			var supportsCommittedReads = IsCommittedReadsSupported(url);
 
-			ReadConcern readConcern;
+			// var supportsCommittedReads = IsCommittedReadsSupported(url);
+			// in the past the default was: supportsCommittedReads ? ReadConcern.Majority : ReadConcern.Default;
+			//  but this doesn't work if writeConcern is not majority
+			var readConcern = ReadConcern.Default;
 			if (url.ReadConcernLevel.HasValue)
 				readConcern = new ReadConcern(url.ReadConcernLevel);
-			else
-				readConcern = supportsCommittedReads ? ReadConcern.Majority : ReadConcern.Default;
 
 			var writeConcern = url.W != null
 				? new WriteConcern(w: url.W, journal: url.Journal ?? true)
@@ -201,25 +201,25 @@ namespace NEStore.MongoDb
 			return dbSettings;
 		}
 
-		private static bool IsCommittedReadsSupported(MongoUrl url)
-		{
-			var client = new MongoClient(url);
-			var status = client.GetDatabase("admin")
-				.RunCommand<BsonDocument>(new BsonDocument("serverStatus", 1));
+		//private static bool IsCommittedReadsSupported(MongoUrl url)
+		//{
+		//	var client = new MongoClient(url);
+		//	var status = client.GetDatabase("admin")
+		//		.RunCommand<BsonDocument>(new BsonDocument("serverStatus", 1));
 
-			var supportsCommittedReads = false;
-			BsonElement storageEngineElement;
-			if (status.TryGetElement("storageEngine", out storageEngineElement))
-			{
-				var storageEngineDoc = storageEngineElement.Value as BsonDocument;
-				BsonValue supportsCommittedReadsValue;
-				if (storageEngineDoc != null
-				    && storageEngineDoc.TryGetValue("supportsCommittedReads", out supportsCommittedReadsValue))
-				{
-					supportsCommittedReads = supportsCommittedReadsValue.AsBoolean;
-				}
-			}
-			return supportsCommittedReads;
-		}
+		//	var supportsCommittedReads = false;
+		//	BsonElement storageEngineElement;
+		//	if (status.TryGetElement("storageEngine", out storageEngineElement))
+		//	{
+		//		var storageEngineDoc = storageEngineElement.Value as BsonDocument;
+		//		BsonValue supportsCommittedReadsValue;
+		//		if (storageEngineDoc != null
+		//		    && storageEngineDoc.TryGetValue("supportsCommittedReads", out supportsCommittedReadsValue))
+		//		{
+		//			supportsCommittedReads = supportsCommittedReadsValue.AsBoolean;
+		//		}
+		//	}
+		//	return supportsCommittedReads;
+		//}
 	}
 }
