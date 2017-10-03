@@ -309,7 +309,9 @@ namespace NEStore.MongoDb
 		/// <param name="commit">Commit to be dispatched</param>
 		private async Task DispatchCommitAsync(CommitData<T> commit)
 		{
-			await Task.WhenAll(_eventStore.GetDispatchers().Select(x => x.DispatchAsync(BucketName, commit)))
+			var dispatchers = _eventStore.GetDispatchers();
+
+			await Task.WhenAll(dispatchers.Select(x => x.DispatchAsync(BucketName, commit)))
 				.ConfigureAwait(false);
 
 			await SetCommitsAsDispatched(commit)
@@ -340,7 +342,8 @@ namespace NEStore.MongoDb
 			if (!_eventStore.AutoCheckUndispatched)
 				return lastCommit;
 
-			if (lastCommit.Dispatched) return lastCommit;
+			if (lastCommit.Dispatched)
+				return lastCommit;
 
 			if (_eventStore.AutoDispatchUndispatchedOnWrite)
 			{
@@ -348,7 +351,7 @@ namespace NEStore.MongoDb
 					.ConfigureAwait(false);
 			}
 
-			if(!lastCommit.Dispatched)
+			if (!lastCommit.Dispatched)
 				throw new UndispatchedEventsFoundException("Undispatched events found, cannot write new events");
 
 			return lastCommit;
@@ -356,13 +359,20 @@ namespace NEStore.MongoDb
 
 		private async Task<CommitInfo> DispatchLastCommitAsync()
 		{
+			// TODO Better auto dispatch
+			// an idea is to have a short wait time (100ms), and use AutoDispatchWaitTime with a longer default (maybe 10 secs)
+			// So each time I wait just 100ms, if lastCommit is changed then I just call myself again, 
+			//  if otherwise lastCommit is always the same then I wait 100ms again and again until I reach AutoDispatchWaitTime
+			//  after that I can redispatch it
+
 			await Task.Delay(_eventStore.AutoDispatchWaitTime)
 				.ConfigureAwait(false);
 
 			var lastCommit = await GetLastCommitAsync()
 				.ConfigureAwait(false);
 
-			if (lastCommit.Dispatched) return lastCommit;
+			if (lastCommit.Dispatched)
+				return lastCommit;
 
 			try
 			{

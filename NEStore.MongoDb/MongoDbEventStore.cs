@@ -29,6 +29,12 @@ namespace NEStore.MongoDb
 		public bool AutoDispatchUndispatchedOnWrite { get; set; } = true;
 		/// <summary>
 		/// When undispatched events are found, wait and double-check for undispatched status. Default is 1s.
+		/// NOTE: Events are supposed to be idempotent, so they can be eventualy redispatched multiple times,
+		///  but I want to ensure that this not happen in a short period of time.
+		/// The same event can be redispatched in case of a temporary network problem, db problem, ...
+		///  but normally the system ensure that an event is dispatched only once, also on heavy load scenario (concurrency)
+		/// The idea is to ensure this by waiting (AutoDispatchWaitTime) and check if the system is busy doing dispatching.
+		/// If the system doesn't dispatch any new events after the AutoDispatchWaitTime then it is "safe" to try to redispatch it
 		/// </summary>
 		public TimeSpan AutoDispatchWaitTime { get; set; } = TimeSpan.FromSeconds(1);
 		/// <summary>
