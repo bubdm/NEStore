@@ -3,6 +3,7 @@ using System.Configuration;
 using System.Linq;
 using System.Threading.Tasks;
 using Moq;
+using NEStore.MongoDb.UndispatchedStrategies;
 
 namespace NEStore.MongoDb.Tests
 {
@@ -17,6 +18,14 @@ namespace NEStore.MongoDb.Tests
 		{
 			BucketName = RandomString((seed ?? 0) + (int)DateTime.Now.Ticks, 10);
 			EventStore = CreateTarget();
+
+			EventStore.UndispatchedStrategy = new UndispatchAllStrategy<T>()
+			{
+				// Reduce the autodispatch wait time to have a short test
+				AutoDispatchWaitTime = TimeSpan.FromMilliseconds(2000),
+				AutoDispatchCheckInterval = TimeSpan.FromMilliseconds(100)
+			};
+
 			Dispatcher = new Mock<IDispatcher<T>>();
 
 			Dispatcher.Setup(p => p.DispatchAsync(It.IsAny<string>(), It.IsAny<CommitData<T>>()))

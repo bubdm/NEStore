@@ -57,6 +57,10 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="UndispatchedStrategies\IgnoreUndispatchedStrategy.cs" />
+    <Compile Include="UndispatchedStrategies\DisallowUndispatchedStrategy.cs" />
+    <Compile Include="UndispatchedStrategies\UndispatchAllStrategy.cs" />
+    <Compile Include="UndispatchedStrategies\IUndispatchedStrategy.cs" />
     <Compile Include="AutoIncrementStrategies\Counter.cs" />
     <Compile Include="AutoIncrementStrategies\IAutoIncrementStrategy.cs" />
     <Compile Include="AutoIncrementStrategies\IncrementCountersStrategy.cs" />

@@ -23,7 +23,7 @@ namespace NEStore
 		/// <summary>
 		/// Dispatch all commits where dispatched attribute is set to false
 		/// </summary>
-		Task DispatchUndispatchedAsync();
+		Task<CommitData<T>[]> DispatchUndispatchedAsync(Guid? streamId, long? toBucketRevision);
 
 		/// <summary>
 		/// Set all undispatched events as dispatched, without dispatching them
@@ -55,13 +55,18 @@ namespace NEStore
 		Task<IEnumerable<T>> GetEventsForStreamAsync(Guid streamId, int fromStreamRevision = 1, int? toStreamRevision = null);
 
 		/// <summary>
-		/// Retrieve all commits from bucket filtered by params
+		/// Retrieve all commits from bucket filtered by params. Ordered by bucket revision.
 		/// </summary>
 		/// <param name="streamId">Unique stream identifier</param>
 		/// <param name="fromBucketRevision">Start bucket revision</param>
 		/// <param name="toBucketRevision">End bucket revision</param>
+		/// <param name="dispatched">Include/exclude dispatched</param>
 		/// <returns>List of commits matching filters</returns>
-		Task<IEnumerable<CommitData<T>>> GetCommitsAsync(Guid? streamId = null, long fromBucketRevision = 1, long? toBucketRevision = null);
+		Task<IEnumerable<CommitData<T>>> GetCommitsAsync(
+			Guid? streamId = null,
+			long fromBucketRevision = 1,
+			long? toBucketRevision = null,
+			bool? dispatched = null);
 
 		/// <summary>
 		/// Retrieve the latest commit matching the specified criteria

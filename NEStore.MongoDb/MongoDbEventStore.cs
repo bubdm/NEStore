@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using MongoDB.Bson;
 using MongoDB.Driver;
 using NEStore.MongoDb.AutoIncrementStrategies;
+using NEStore.MongoDb.UndispatchedStrategies;
 
 namespace NEStore.MongoDb
 {
@@ -19,32 +20,27 @@ namespace NEStore.MongoDb
 		/// Create indexes at first write. Default is true.
 		/// </summary>
 		public bool AutoEnsureIndexes { get; set; } = true;
-		/// <summary>
-		/// Check for undispatched events at each write. Default is true.
-		/// </summary>
+
+		[Obsolete]
 		public bool AutoCheckUndispatched { get; set; } = true;
-		/// <summary>
-		/// Dispatch undispatched events at each write. Default is true.
-		/// </summary>
+		[Obsolete]
 		public bool AutoDispatchUndispatchedOnWrite { get; set; } = true;
-		/// <summary>
-		/// When undispatched events are found, wait and double-check for undispatched status. Default is 1s.
-		/// NOTE: Events are supposed to be idempotent, so they can be eventualy redispatched multiple times,
-		///  but I want to ensure that this not happen in a short period of time.
-		/// The same event can be redispatched in case of a temporary network problem, db problem, ...
-		///  but normally the system ensure that an event is dispatched only once, also on heavy load scenario (concurrency)
-		/// The idea is to ensure this by waiting (AutoDispatchWaitTime) and check if the system is busy doing dispatching.
-		/// If the system doesn't dispatch any new events after the AutoDispatchWaitTime then it is "safe" to try to redispatch it
-		/// </summary>
+		[Obsolete]
 		public TimeSpan AutoDispatchWaitTime { get; set; } = TimeSpan.FromSeconds(1);
+
 		/// <summary>
 		/// Manually check for stream revision validity before writing any data. Default is true.
 		/// </summary>
 		public bool CheckStreamRevisionBeforeWriting { get; set; } = true;
 		/// <summary>
-		/// 
+		/// Auto increment strategy, default to IncrementCountersStrategy
 		/// </summary>
 		public IAutoIncrementStrategy AutonIncrementStrategy { get; set; }
+
+		/// <summary>
+		/// Undispatch strategy, default to UndispatchByStreamIdStrategy
+		/// </summary>
+		public IUndispatchedStrategy<T> UndispatchedStrategy { get; set; }
 
 		static MongoDbEventStore()
 		{
@@ -67,6 +63,7 @@ namespace NEStore.MongoDb
 			Database = client.GetDatabase(url.DatabaseName, settings);
 
 			AutonIncrementStrategy = new IncrementCountersStrategy<T>(this);
+			UndispatchedStrategy = new UndispatchAllStrategy<T>();
 		}
 
 		/// <summary>
@@ -78,6 +75,10 @@ namespace NEStore.MongoDb
 			var collection = CollectionFromBucket<CommitData<T>>(bucketName);
 
 			var builder = new IndexKeysDefinitionBuilder<CommitData<T>>();
+
+			// TODO Eval to use partial index for dispatched (only when dispatched is false)
+			//  https://docs.mongodb.com/manual/core/index-partial/
+			//  This will allow us to not check for dispatched when writing and just catch the duplicate exception
 
 			await collection.Indexes.CreateManyAsync(new[]
 			{

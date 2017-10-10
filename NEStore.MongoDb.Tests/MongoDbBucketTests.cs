@@ -8,6 +8,7 @@ using MongoDB.Bson.Serialization.Conventions;
 using Moq;
 using NEStore.MongoDb.AutoIncrementStrategies;
 using NEStore.MongoDb.Conventions;
+using NEStore.MongoDb.UndispatchedStrategies;
 using Xunit;
 
 namespace NEStore.MongoDb.Tests
@@ -30,6 +31,74 @@ namespace NEStore.MongoDb.Tests
 			f.EventStore.AutonIncrementStrategy = new IncrementCountersStrategy<T>(f.EventStore);
 			return f;
 		}
+
+		// Note: this test only works for IncrementCountersStrategy
+		[Fact]
+		public async Task Should_dispatch_only_once_when_a_dispatch_is_slow_and_a_new_write_arrive()
+		{
+			// NOTE: Events are supposed to be idempotent, so they can be eventualy redispatched multiple times,
+			//  but I want to ensure that this not happen in a short period of time.
+			// The same event can be redispatched in case of a temporary network problem, db problem, ...
+			//  but normally the system ensure that an event is dispatched only once, also on heavy load scenario (concurrency)
+			// The idea is to ensure this by waiting (AutoDispatchWaitTime) and check if the system is busy doing dispatching.
+			// If the system doesn't dispatch any new commit after the AutoDispatchWaitTime then it is "safe" to try to redispatch it
+
+			using (var fixture = CreateFixture<FakeEventWithIndex>())
+			{
+				fixture.EventStore.UndispatchedStrategy = new UndispatchAllStrategy<FakeEventWithIndex>()
+				{
+					// Reduce the autodispatch wait time to have a short test
+					AutoDispatchWaitTime = TimeSpan.FromMilliseconds(500),
+					AutoDispatchCheckInterval = TimeSpan.FromMilliseconds(50)
+				};
+
+				var random = new Random();
+				var dispatchedEvents = new ConcurrentBag<FakeEventWithIndex>();
+				// Simulate a long dispatch time
+				fixture.Dispatcher.Setup(p => p.DispatchAsync(It.IsAny<string>(), It.IsAny<CommitData<FakeEventWithIndex>>()))
+					.Returns<string, CommitData<FakeEventWithIndex>>((s, c) =>
+					{
+						foreach (var e in c.Events)
+							dispatchedEvents.Add(e);
+
+						return Task.Delay(random.Next(300, 400));
+					});
+
+				var events = new object[20]
+					.Select((p, i) => new FakeEventWithIndex { Index = i + 1 })
+					.ToList();
+
+				// 0
+				// Add at least one event (first)
+				await fixture.Bucket.WriteAsync(Guid.NewGuid(), 0, new[] { new FakeEventWithIndex { Index = 0 } });
+
+				// n
+				// Add more events in parallel (note: with this code probably events will be written NOT in order)
+				// ReSharper disable once AccessToDisposedClosure
+				await events.ForEachAsync(@event => fixture.Bucket.WriteAsync(Guid.NewGuid(), 0, new[] { @event }));
+
+				// n + 1
+				// Add a last event and wait dispatch, this is a way to wait that all events are dispatched...
+				await fixture.Bucket.WriteAndDispatchAsync(Guid.NewGuid(), 0, new[] { new FakeEventWithIndex { Index = events.Count + 1 } });
+
+				// Ensure to have dispatched only the actual written events
+				var expectedEvents = events.Count + 2;
+				fixture.Dispatcher.Verify(
+					p => p.DispatchAsync(It.IsAny<string>(), It.IsAny<CommitData<FakeEventWithIndex>>()),
+					Times.Exactly(expectedEvents));
+				Assert.Equal(expectedEvents, dispatchedEvents.Count);
+
+				// Ensure all events are dispatched
+				Assert.Equal(false, await fixture.Bucket.HasUndispatchedCommitsAsync());
+				// Ensure all events are written
+				Assert.Equal(expectedEvents, (await fixture.Bucket.GetCommitsAsync()).Count());
+
+				// Ensure dispatch without diplicates
+				for (var i = 0; i < expectedEvents; i++)
+					Assert.NotNull(dispatchedEvents.SingleOrDefault(e => e.Index == i));
+			}
+		}
+
 	}
 
 	public abstract class MongoDbBucketTests
@@ -493,10 +562,12 @@ namespace NEStore.MongoDb.Tests
 		}
 
 		[Fact]
-		public async Task Cannot_write_new_event_if_undispatched_events_are_found()
+		public async Task Cannot_write_new_event_if_undispatched_events_are_found_and_when_using_DisallowUndispatchedStrategy()
 		{
 			using (var fixture = CreateFixture<object>())
 			{
+				fixture.EventStore.UndispatchedStrategy = new DisallowUndispatchedStrategy<object>();
+
 				var streamId = Guid.NewGuid();
 
 				var @event = new { n1 = "v1" };
@@ -510,12 +581,36 @@ namespace NEStore.MongoDb.Tests
 
 				Assert.Equal(true, await fixture.Bucket.HasUndispatchedCommitsAsync());
 
-				fixture.EventStore.AutoDispatchUndispatchedOnWrite = false;
-
 				await
 					Assert.ThrowsAsync<UndispatchedEventsFoundException>(() => fixture.Bucket.WriteAsync(streamId, 1, new[] { @event }));
 
 				fixture.Dispatcher.Verify(p => p.DispatchAsync(It.IsAny<string>(), It.IsAny<CommitData<object>>()), Times.Once());
+			}
+		}
+
+		[Fact]
+		public async Task Can_write_new_event_if_undispatched_events_are_found_and_when_using_IgnoreUndispatchedStrategy()
+		{
+			using (var fixture = CreateFixture<object>())
+			{
+				fixture.EventStore.UndispatchedStrategy = new IgnoreUndispatchedStrategy<object>();
+
+				var streamId = Guid.NewGuid();
+
+				var @event = new { n1 = "v1" };
+
+				// Create an undispatched event
+				fixture.Dispatcher.Setup(p => p.DispatchAsync(It.IsAny<string>(), It.IsAny<CommitData<object>>()))
+					.Throws(new MyException("Some dispatch exception"));
+				var result = await fixture.Bucket.WriteAsync(streamId, 0, new[] { @event });
+
+				await Assert.ThrowsAsync<MyException>(() => result.DispatchTask);
+
+				Assert.Equal(true, await fixture.Bucket.HasUndispatchedCommitsAsync());
+
+				await fixture.Bucket.WriteAsync(streamId, 1, new[] { @event });
+
+				fixture.Dispatcher.Verify(p => p.DispatchAsync(It.IsAny<string>(), It.IsAny<CommitData<object>>()), Times.Exactly(2));
 			}
 		}
 
@@ -568,67 +663,6 @@ namespace NEStore.MongoDb.Tests
 				await fixture.Bucket.WriteAsync(streamId, 1, new[] { @event });
 
 				fixture.Dispatcher.Verify(p => p.DispatchAsync(It.IsAny<string>(), It.IsAny<CommitData<object>>()), Times.Exactly(3));
-			}
-		}
-
-		[Fact]
-		public async Task Should_dispatch_only_once_when_a_dispatch_is_slow_and_a_new_write_arrive()
-		{
-			// NOTE: Events are supposed to be idempotent, so they can be eventualy redispatched multiple times,
-			//  but I want to ensure that this not happen in a short period of time.
-			// The same event can be redispatched in case of a temporary network problem, db problem, ...
-			//  but normally the system ensure that an event is dispatched only once, also on heavy load scenario (concurrency)
-			// The idea is to ensure this by waiting (AutoDispatchWaitTime) and check if the system is busy doing dispatching.
-			// If the system doesn't dispatch any new events after the AutoDispatchWaitTime then it is "safe" to try to redispatch it
-
-			using (var fixture = CreateFixture<FakeEventWithIndex>())
-			{
-				// Reduce the autodispatch wait time to have a short test
-				fixture.EventStore.AutoDispatchWaitTime = TimeSpan.FromMilliseconds(500);
-
-				var dispatchedEvents = new ConcurrentBag<FakeEventWithIndex>();
-				// Simulate a long dispatch time
-				fixture.Dispatcher.Setup(p => p.DispatchAsync(It.IsAny<string>(), It.IsAny<CommitData<FakeEventWithIndex>>()))
-					.Returns<string, CommitData<FakeEventWithIndex>>((s, c) =>
-					{
-						foreach (var e in c.Events)
-							dispatchedEvents.Add(e);
-
-						return Task.Delay(400);
-					});
-
-				var events = new object[20]
-					.Select((p, i) => new FakeEventWithIndex { Index = i + 1 })
-					.ToList();
-
-				// 0
-				// Add at least one event (first)
-				await fixture.Bucket.WriteAsync(Guid.NewGuid(), 0, new[] { new FakeEventWithIndex { Index = 0 } });
-
-				// n
-				// Add more events in parallel (note: with this code probably events will be written NOT in order)
-				// ReSharper disable once AccessToDisposedClosure
-				await events.ForEachAsync(@event => fixture.Bucket.WriteAsync(Guid.NewGuid(), 0, new[] {@event}));
-
-				// n + 1
-				// Add a last event and wait dispatch, this is a way to wait that all events are dispatched...
-				await fixture.Bucket.WriteAndDispatchAsync(Guid.NewGuid(), 0, new[] { new FakeEventWithIndex { Index = events.Count + 1 } });
-
-				// Ensure to have dispatched only the actual written events
-				var expectedEvents = events.Count + 2;
-				fixture.Dispatcher.Verify(
-					p => p.DispatchAsync(It.IsAny<string>(), It.IsAny<CommitData<FakeEventWithIndex>>()),
-					Times.Exactly(expectedEvents));
-				Assert.Equal(expectedEvents, dispatchedEvents.Count);
-
-				// Ensure all events are dispatched
-				Assert.Equal(false, await fixture.Bucket.HasUndispatchedCommitsAsync());
-				// Ensure all events are written
-				Assert.Equal(expectedEvents, (await fixture.Bucket.GetCommitsAsync()).Count());
-
-				// Ensure dispatch without diplicates
-				for (var i = 0; i < expectedEvents; i++)
-					Assert.NotNull(dispatchedEvents.SingleOrDefault(e => e.Index == i));
 			}
 		}
 

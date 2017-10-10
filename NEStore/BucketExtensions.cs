@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace NEStore
@@ -60,13 +61,18 @@ namespace NEStore
 		/// <returns>True if there are undispatched commits, otherwise false</returns>
 		public static async Task<bool> HasUndispatchedCommitsAsync<T>(this IBucket<T> bucket)
 		{
-			var lastCommit = await bucket.GetLastCommitAsync()
+			var commits = await bucket.GetCommitsAsync(dispatched: false)
 				.ConfigureAwait(false);
 
-			if (lastCommit == null)
-				return false;
+			return commits.Any();
+		}
 
-			return !lastCommit.Dispatched;
+		public static async Task<CommitInfo> GetFirstUndispatchedCommitAsync<T>(this IBucket<T> bucket)
+		{
+			var commits = await bucket.GetCommitsAsync(dispatched: false)
+				.ConfigureAwait(false);
+
+			return commits.FirstOrDefault();
 		}
 	}
 }

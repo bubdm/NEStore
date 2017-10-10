@@ -34,21 +34,20 @@ namespace NEStore.MongoDb
 			if (expectedStreamRevision < 0)
 				throw new ArgumentOutOfRangeException(nameof(expectedStreamRevision));
 
-			var lastCommit = await GetLastCommitAsync()
-				.ConfigureAwait(false);
-
-			await CheckBeforeWriting(streamId, expectedStreamRevision, lastCommit)
-				.ConfigureAwait(false);
-
 			await AutoEnsureIndexesAsync()
 				.ConfigureAwait(false);
 
-			if (lastCommit != null)
-				lastCommit = await CheckForUndispatched(lastCommit)
-					.ConfigureAwait(false);
+			var lastCommit = await GetLastCommitAsync()
+				.ConfigureAwait(false);
+
+			await CheckStreamConsistencyBeforeWriting(streamId, expectedStreamRevision, lastCommit)
+				.ConfigureAwait(false);
+
+			await _eventStore.UndispatchedStrategy
+				.CheckUndispatchedAsync(this, streamId)
+				.ConfigureAwait(false);
 
 			var eventsArray = events.ToArray();
-
 			var commit = await CreateCommitAsync(streamId, expectedStreamRevision, eventsArray, lastCommit).ConfigureAwait(false);
 
 			try
@@ -70,10 +69,16 @@ namespace NEStore.MongoDb
 		/// <summary>
 		/// Dispatch all commits where dispatched attribute is set to false
 		/// </summary>
-		public async Task DispatchUndispatchedAsync()
+		public async Task<CommitData<T>[]> DispatchUndispatchedAsync(Guid? streamId = null, long? toBucketRevision = null)
 		{
+			var filter = Builders<CommitData<T>>.Filter.Eq(p => p.Dispatched, false);
+			if (streamId != null)
+				filter = filter & Builders<CommitData<T>>.Filter.Eq(p => p.StreamId, streamId.Value);
+			if (toBucketRevision != null)
+				filter = filter & Builders<CommitData<T>>.Filter.Lte(p => p.BucketRevision, toBucketRevision.Value);
+
 			var commits = await Collection
-				.Find(p => p.Dispatched == false)
+				.Find(filter)
 				.Sort(Builders<CommitData<T>>.Sort.Ascending(p => p.BucketRevision))
 				.ToListAsync()
 				.ConfigureAwait(false);
@@ -81,6 +86,8 @@ namespace NEStore.MongoDb
 			foreach (var commit in commits)
 				await DispatchCommitAsync(commit)
 					.ConfigureAwait(false);
+
+			return commits.ToArray();
 		}
 
 		/// <summary>
@@ -181,8 +188,13 @@ namespace NEStore.MongoDb
 		/// <param name="streamId">Unique stream identifier</param>
 		/// <param name="fromBucketRevision">Start bucket revision</param>
 		/// <param name="toBucketRevision">End bucket revision</param>
+		/// <param name="dispatched">Include/exclude dispatched</param>
 		/// <returns>List of commits matching filters</returns>
-		public async Task<IEnumerable<CommitData<T>>> GetCommitsAsync(Guid? streamId = null, long fromBucketRevision = 1, long? toBucketRevision = null)
+		public async Task<IEnumerable<CommitData<T>>> GetCommitsAsync(
+			Guid? streamId = null,
+			long fromBucketRevision = 1,
+			long? toBucketRevision = null,
+			bool? dispatched = null)
 		{
 			if (fromBucketRevision <= 0)
 				throw new ArgumentOutOfRangeException(nameof(fromBucketRevision),
@@ -199,6 +211,9 @@ namespace NEStore.MongoDb
 				filter = filter & Builders<CommitData<T>>.Filter.Gte(p => p.BucketRevision, fromBucketRevision);
 			if (toBucketRevision != null)
 				filter = filter & Builders<CommitData<T>>.Filter.Lte(p => p.BucketRevision, toBucketRevision.Value);
+
+			if (dispatched != null)
+				filter = filter & Builders<CommitData<T>>.Filter.Eq(p => p.Dispatched, dispatched.Value);
 
 			var commits = await Collection
 				.Find(filter)
@@ -334,67 +349,12 @@ namespace NEStore.MongoDb
 		}
 
 		/// <summary>
-		/// Check if bucket has undispatched commits, if founded tries to dispatch them
-		/// </summary>
-		/// <returns>Throw UndispatchedEventsFoundException if undispatched commits exists</returns>
-		private async Task<CommitInfo> CheckForUndispatched(CommitInfo lastCommit)
-		{
-			if (!_eventStore.AutoCheckUndispatched)
-				return lastCommit;
-
-			if (lastCommit.Dispatched)
-				return lastCommit;
-
-			if (_eventStore.AutoDispatchUndispatchedOnWrite)
-			{
-				lastCommit = await DispatchLastCommitAsync()
-					.ConfigureAwait(false);
-			}
-
-			if (!lastCommit.Dispatched)
-				throw new UndispatchedEventsFoundException("Undispatched events found, cannot write new events");
-
-			return lastCommit;
-		}
-
-		private async Task<CommitInfo> DispatchLastCommitAsync()
-		{
-			// TODO Better auto dispatch
-			// an idea is to have a short wait time (100ms), and use AutoDispatchWaitTime with a longer default (maybe 10 secs)
-			// So each time I wait just 100ms, if lastCommit is changed then I just call myself again, 
-			//  if otherwise lastCommit is always the same then I wait 100ms again and again until I reach AutoDispatchWaitTime
-			//  after that I can redispatch it
-
-			await Task.Delay(_eventStore.AutoDispatchWaitTime)
-				.ConfigureAwait(false);
-
-			var lastCommit = await GetLastCommitAsync()
-				.ConfigureAwait(false);
-
-			if (lastCommit.Dispatched)
-				return lastCommit;
-
-			try
-			{
-				await DispatchUndispatchedAsync()
-					.ConfigureAwait(false);
-			}
-			catch (Exception ex)
-			{
-				throw new UndispatchedEventsFoundException("Undispatched events found, cannot dispatch them and write new events", ex);
-			}
-
-			return await GetLastCommitAsync()
-				.ConfigureAwait(false);
-		}
-
-		/// <summary>
 		/// Checks if someone else is writing on the same bucket
 		/// </summary>
 		/// <param name="streamId">Unique stream identifier</param>
 		/// <param name="expectedStreamRevision">Expected revision of the provided stream</param>
 		/// <param name="lastCommit">Last commit of the bucket</param>
-		private async Task CheckBeforeWriting(Guid streamId, int expectedStreamRevision, CommitInfo lastCommit)
+		private async Task CheckStreamConsistencyBeforeWriting(Guid streamId, int expectedStreamRevision, CommitInfo lastCommit)
 		{
 			if (!_eventStore.CheckStreamRevisionBeforeWriting)
 				return;
