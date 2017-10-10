@@ -3,6 +3,11 @@ using System.Threading.Tasks;
 
 namespace NEStore.MongoDb.UndispatchedStrategies
 {
+	// TODO Eval to use partial index for dispatched (only when dispatched is false)
+	//  https://docs.mongodb.com/manual/core/index-partial/
+	//  This will allow us to not check for dispatched when writing and just catch the duplicate exception
+	//  and it is the db that will enforce to have just 1 undispatched per bucket
+
 	/// <summary>
 	/// This strategy dispatch all the commits undispatched, only if not dispached after AutoDispatchWaitTime.
 	/// If there are always undispatched and MaxWaitTime is passed, then UndispatchedEventsFoundException is throw.
