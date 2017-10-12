@@ -66,7 +66,8 @@ namespace NEStore
 			Guid? streamId = null,
 			long fromBucketRevision = 1,
 			long? toBucketRevision = null,
-			bool? dispatched = null);
+			bool? dispatched = null,
+			int? limit = null);
 
 		/// <summary>
 		/// Retrieve the latest commit matching the specified criteria

@@ -58,18 +58,19 @@ namespace NEStore
 		/// Checks if there are undispatched commits
 		/// </summary>
 		/// <param name="bucket">Bucket identifier</param>
+		/// <param name="streamId">Stream id</param>
 		/// <returns>True if there are undispatched commits, otherwise false</returns>
-		public static async Task<bool> HasUndispatchedCommitsAsync<T>(this IBucket<T> bucket)
+		public static async Task<bool> HasUndispatchedCommitsAsync<T>(this IBucket<T> bucket, Guid? streamId = null)
 		{
-			var commits = await bucket.GetCommitsAsync(dispatched: false)
+			var commits = await bucket.GetCommitsAsync(dispatched: false, streamId: streamId, limit: 1)
 				.ConfigureAwait(false);
 
 			return commits.Any();
 		}
 
-		public static async Task<CommitInfo> GetFirstUndispatchedCommitAsync<T>(this IBucket<T> bucket)
+		public static async Task<CommitInfo> GetFirstUndispatchedCommitAsync<T>(this IBucket<T> bucket, Guid? streamId = null)
 		{
-			var commits = await bucket.GetCommitsAsync(dispatched: false)
+			var commits = await bucket.GetCommitsAsync(dispatched: false, streamId: streamId, limit: 1)
 				.ConfigureAwait(false);
 
 			return commits.FirstOrDefault();

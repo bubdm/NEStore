@@ -14,9 +14,9 @@ namespace NEStore.MongoDb.Tests
 		public MongoDbBucket<T> Bucket { get; }
 		public Mock<IDispatcher<T>> Dispatcher { get; }
 
-		public MongoDbEventStoreFixture(int? seed = null, int dispatchDelay = 50)
+		public MongoDbEventStoreFixture(int? seed = null, int dispatchDelay = 50, string bucketName = null)
 		{
-			BucketName = RandomString((seed ?? 0) + (int)DateTime.Now.Ticks, 10);
+			BucketName = bucketName ?? RandomString((seed ?? 0) + (int)DateTime.Now.Ticks, 10);
 			EventStore = CreateTarget();
 
 			EventStore.UndispatchedStrategy = new UndispatchAllStrategy<T>()

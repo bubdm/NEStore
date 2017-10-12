@@ -174,14 +174,6 @@ namespace NEStore.MongoDb
 				.ToList();
 		}
 
-		public async Task<bool> HasUndispatchedCommitsAsync()
-		{
-			return await Collection
-				.Find(p => p.Dispatched == false)
-				.AnyAsync()
-				.ConfigureAwait(false);
-		}
-
 		/// <summary>
 		/// Retrieve all commits from bucket filtered by params
 		/// </summary>
@@ -189,12 +181,14 @@ namespace NEStore.MongoDb
 		/// <param name="fromBucketRevision">Start bucket revision</param>
 		/// <param name="toBucketRevision">End bucket revision</param>
 		/// <param name="dispatched">Include/exclude dispatched</param>
+		/// <param name="limit">Limit</param>
 		/// <returns>List of commits matching filters</returns>
 		public async Task<IEnumerable<CommitData<T>>> GetCommitsAsync(
 			Guid? streamId = null,
 			long fromBucketRevision = 1,
 			long? toBucketRevision = null,
-			bool? dispatched = null)
+			bool? dispatched = null,
+			int? limit = null)
 		{
 			if (fromBucketRevision <= 0)
 				throw new ArgumentOutOfRangeException(nameof(fromBucketRevision),
@@ -218,6 +212,7 @@ namespace NEStore.MongoDb
 			var commits = await Collection
 				.Find(filter)
 				.Sort(Builders<CommitData<T>>.Sort.Ascending(p => p.BucketRevision))
+				.Limit(limit)
 				.ToListAsync()
 				.ConfigureAwait(false);
 

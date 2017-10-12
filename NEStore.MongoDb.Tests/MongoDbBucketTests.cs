@@ -17,7 +17,7 @@ namespace NEStore.MongoDb.Tests
 	{
 		public override MongoDbEventStoreFixture<T> CreateFixture<T>()
 		{
-			var f = new MongoDbEventStoreFixture<T>(85);
+			var f = new MongoDbEventStoreFixture<T>(seed: 85);
 			f.EventStore.AutonIncrementStrategy = new IncrementFromLastCommitStrategy();
 			return f;
 		}
@@ -27,7 +27,7 @@ namespace NEStore.MongoDb.Tests
 	{
 		public override MongoDbEventStoreFixture<T> CreateFixture<T>()
 		{
-			var f = new MongoDbEventStoreFixture<T>(33);
+			var f = new MongoDbEventStoreFixture<T>(seed: 33);
 			f.EventStore.AutonIncrementStrategy = new IncrementCountersStrategy<T>(f.EventStore);
 			return f;
 		}
@@ -479,6 +479,28 @@ namespace NEStore.MongoDb.Tests
 		}
 
 		[Fact]
+		public async Task Undispatch_events_block_write_on_same_bucket_same_stream()
+		{
+			using (var fixture = CreateFixture<object>())
+			{
+				var streamId = Guid.NewGuid();
+				var @event = new { n1 = "v1" };
+				fixture.Dispatcher.Setup(p => p.DispatchAsync(It.IsAny<string>(), It.IsAny<CommitData<object>>()))
+					.Throws(new MyException("Some dispatch exception"));
+				var result = await fixture.Bucket.WriteAsync(streamId, 0, new[] { @event });
+
+				await Assert.ThrowsAsync<MyException>(() => result.DispatchTask);
+
+				Assert.Equal(true, await fixture.Bucket.HasUndispatchedCommitsAsync());
+
+				var @event2 = new { n1 = "v1" };
+
+				await
+					Assert.ThrowsAsync<UndispatchedEventsFoundException>(() => fixture.Bucket.WriteAsync(streamId, 1, new[] { @event2 }));
+			}
+		}
+
+		[Fact]
 		public async Task Undispatch_events_doesnt_block_write_on_other_buckets()
 		{
 			using (var fixture = CreateFixture<object>())
@@ -505,6 +527,57 @@ namespace NEStore.MongoDb.Tests
 			}
 		}
 
+		[Fact]
+		public async Task Undispatch_events_doesnt_block_write_on_other_stream_if_Undispatch_strategy_has_SameStreamOnly_true()
+		{
+			using (var fixture = CreateFixture<object>())
+			{
+				fixture.EventStore.UndispatchedStrategy = new UndispatchAllStrategy<object> { SameStreamOnly = true };
+
+				var streamId = Guid.NewGuid();
+				var @event = new { n1 = "v1" };
+				fixture.Dispatcher.Setup(p => p.DispatchAsync(It.IsAny<string>(), It.Is<CommitData<object>>(c => c.StreamId == streamId)))
+					.Throws(new MyException("Some dispatch exception"));
+				var result = await fixture.Bucket.WriteAsync(streamId, 0, new[] { @event });
+
+				await Assert.ThrowsAsync<MyException>(() => result.DispatchTask);
+				Assert.Equal(true, await fixture.Bucket.HasUndispatchedCommitsAsync());
+
+
+				var streamId2 = Guid.NewGuid();
+				var @event2 = new { n1 = "v1" };
+
+				await fixture.Bucket.WriteAndDispatchAsync(streamId2, 0, new[] { @event2 });
+
+				var undispatchedCommits = (await fixture.Bucket.GetCommitsAsync(dispatched: false)).ToList();
+				Assert.Equal(1, undispatchedCommits.Count);
+				Assert.Equal(streamId, undispatchedCommits.First().StreamId);
+			}
+		}
+
+		[Fact]
+		public async Task Undispatch_events_block_write_on_same_bucket_same_stream_if_Undispatch_strategy_has_SameStreamOnly_true()
+		{
+			using (var fixture = CreateFixture<object>())
+			{
+				fixture.EventStore.UndispatchedStrategy = new UndispatchAllStrategy<object> { SameStreamOnly = true };
+
+				var streamId = Guid.NewGuid();
+				var @event = new { n1 = "v1" };
+				fixture.Dispatcher.Setup(p => p.DispatchAsync(It.IsAny<string>(), It.IsAny<CommitData<object>>()))
+					.Throws(new MyException("Some dispatch exception"));
+				var result = await fixture.Bucket.WriteAsync(streamId, 0, new[] { @event });
+
+				await Assert.ThrowsAsync<MyException>(() => result.DispatchTask);
+
+				Assert.Equal(true, await fixture.Bucket.HasUndispatchedCommitsAsync());
+
+				var @event2 = new { n1 = "v1" };
+
+				await
+					Assert.ThrowsAsync<UndispatchedEventsFoundException>(() => fixture.Bucket.WriteAsync(streamId, 1, new[] { @event2 }));
+			}
+		}
 
 		[Fact]
 		public async Task Can_redispatch_undispatched_events()

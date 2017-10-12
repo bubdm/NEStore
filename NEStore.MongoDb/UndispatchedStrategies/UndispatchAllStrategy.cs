@@ -17,24 +17,32 @@ namespace NEStore.MongoDb.UndispatchedStrategies
 	public class UndispatchAllStrategy<T> : IUndispatchedStrategy<T>
 	{
 		/// <summary>
-		/// When undispatched events are found, wait for this interval and redispatch if required. Default is 10s.
+		/// When undispatched events are found, wait for this interval and redispatch if required. Default is 15s.
 		/// </summary>
-		public TimeSpan AutoDispatchWaitTime { get; set; } = TimeSpan.FromSeconds(10);
+		public TimeSpan AutoDispatchWaitTime { get; set; } = TimeSpan.FromSeconds(15);
 
 		public TimeSpan AutoDispatchCheckInterval { get; set; } = TimeSpan.FromMilliseconds(100);
 
 		public TimeSpan MaxWaitTime { get; set; } = TimeSpan.FromMinutes(1);
 
+		/// <summary>
+		/// Redispatch only for the same stream. Default is false.
+		/// </summary>
+		public bool SameStreamOnly { get; set; } = false;
+
 		public async Task CheckUndispatchedAsync(IBucket<T> bucket, Guid streamId)
 		{
 			var sameCommitWait = TimeSpan.Zero;
 			var totalWait = TimeSpan.Zero;
+			var filterByStreamId = SameStreamOnly
+				? (Guid?)streamId
+				: null;
 
 			var prevUndispachedRevision = long.MinValue;
 			while (true)
 			{
 				// Check if there is an undispatched
-				var undispatched = await bucket.GetFirstUndispatchedCommitAsync()
+				var undispatched = await bucket.GetFirstUndispatchedCommitAsync(filterByStreamId)
 					.ConfigureAwait(false);
 
 				// No more undispatched
@@ -59,16 +67,16 @@ namespace NEStore.MongoDb.UndispatchedStrategies
 					throw new UndispatchedEventsFoundException("Undispatched events found");
 
 				if (sameCommitWait >= AutoDispatchWaitTime)
-					await DispatchLastCommitAsync(bucket, undispatched.BucketRevision)
+					await DispatchLastCommitAsync(bucket, filterByStreamId, undispatched.BucketRevision)
 						.ConfigureAwait(false);
 			}
 		}
 
-		private static async Task DispatchLastCommitAsync(IBucket<T> bucket, long atBucketRevision)
+		private static async Task DispatchLastCommitAsync(IBucket<T> bucket, Guid? filterByStreamId, long atBucketRevision)
 		{
 			try
 			{
-				await bucket.DispatchUndispatchedAsync(null, atBucketRevision)
+				await bucket.DispatchUndispatchedAsync(filterByStreamId, atBucketRevision)
 					.ConfigureAwait(false);
 			}
 			catch (Exception ex)
