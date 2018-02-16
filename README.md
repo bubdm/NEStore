@@ -2,6 +2,8 @@
 
 .**N**ET **E**vent **Store**
 
+Node.js version available at [https://github.com/deltatre-webplu/nestore-js-mongodb](https://github.com/deltatre-webplu/nestore-js-mongodb).
+
 ## Introduction
 
 NEStore is an event store for .NET Framework. An event store is where events are stored when using the Event Sourcing pattern.
