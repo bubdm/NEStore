@@ -89,7 +89,10 @@ namespace NEStore.MongoDb
 					.Ascending(p => p.StreamId), new CreateIndexOptions { Name = "StreamId" }),
 				new CreateIndexModel<CommitData<T>>(builder
 					.Ascending(p => p.StreamId)
-					.Ascending(p => p.StreamRevisionStart), new CreateIndexOptions { Name = "StreamRevision", Unique = true })
+					.Ascending(p => p.StreamRevisionStart), new CreateIndexOptions { Name = "StreamRevision", Unique = true }),
+				new CreateIndexModel<CommitData<T>>(
+					new BsonDocument("StreamId", 1).Add("_id", 1),
+					new CreateIndexOptions { Name = "CompoundStreamId", Unique = true })
 			}).ConfigureAwait(false);
 		}
 
