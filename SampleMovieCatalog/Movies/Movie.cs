@@ -26,14 +26,14 @@ namespace SampleMovieCatalog.Movies
 
 		public string Title
 		{
-			get { return _title; }
-			set { ApplyChange(new MovieTitleSet(ObjectId, value)); }
+			get => _title;
+			set => ApplyChange(new MovieTitleSet(ObjectId, value));
 		}
 
 		public string Genre
 		{
-			get { return _genre; }
-			set { ApplyChange(new MovieGenreSet(ObjectId, value)); }
+			get => _genre;
+			set => ApplyChange(new MovieGenreSet(ObjectId, value));
 		}
 
 		public void On(MovieCreated @event) => ObjectId = @event.ObjectId;
