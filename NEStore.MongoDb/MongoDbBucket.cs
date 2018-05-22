@@ -95,14 +95,10 @@ namespace NEStore.MongoDb
 		/// </summary>
 		public async Task SetAllAsDispatched()
 		{
-			var commits = await Collection
-				.Find(p => p.Dispatched == false)
-				.Sort(Builders<CommitData<T>>.Sort.Ascending(p => p.BucketRevision))
-				.ToListAsync()
-				.ConfigureAwait(false);
-
-			await SetCommitsAsDispatched(commits.ToArray())
-				.ConfigureAwait(false);
+		  await Collection
+		    .UpdateManyAsync(Builders<CommitData<T>>.Filter.Eq(p => p.Dispatched, false),
+		                     Builders<CommitData<T>>.Update.Set(p => p.Dispatched, true))
+		    .ConfigureAwait(false);
 		}
 
 		/// <summary>
@@ -155,18 +151,17 @@ namespace NEStore.MongoDb
 			if (toStreamRevision != null)
 				filter = filter & Builders<CommitData<T>>.Filter.Lt(p => p.StreamRevisionStart, toStreamRevision.Value);
 
-			var commits = await Collection
+			var commitEvents = await Collection
 				.Find(filter)
 				.Sort(Builders<CommitData<T>>.Sort.Ascending(p => p.BucketRevision))
+			  .Project(p => p.Events)
 				.ToListAsync()
 				.ConfigureAwait(false);
 			
-			var events = commits
-				.SelectMany(c => c.Events)
-				.ToList();
+			var events = commitEvents.SelectMany(p => p).ToArray();
 
 			var safeFrom = fromStreamRevision;
-			var safeTo = toStreamRevision ?? events.Count;
+		  var safeTo = toStreamRevision ?? events.Length;
 
 			return events
 				.Skip(safeFrom - 1)
@@ -324,23 +319,11 @@ namespace NEStore.MongoDb
 			await Task.WhenAll(dispatchers.Select(x => x.DispatchAsync(BucketName, commit)))
 				.ConfigureAwait(false);
 
-			await SetCommitsAsDispatched(commit)
-				.ConfigureAwait(false);
-		}
-
-		/// <summary>
-		/// Set commits as dispatched
-		/// </summary>
-		/// <param name="commits">List of commits dispatched</param>
-		private async Task SetCommitsAsDispatched(params CommitData<T>[] commits)
-		{
-			foreach (var commit in commits)
-			{
-				await Collection.UpdateOneAsync(
-					p => p.BucketRevision == commit.BucketRevision,
-					Builders<CommitData<T>>.Update.Set(p => p.Dispatched, true))
-					.ConfigureAwait(false);
-			}
+		  var commitBucketRevision = commit.BucketRevision;
+		  await Collection.UpdateOneAsync(
+		      p => p.BucketRevision == commitBucketRevision,
+		      Builders<CommitData<T>>.Update.Set(p => p.Dispatched, true))
+		    .ConfigureAwait(false);
 		}
 
 		/// <summary>

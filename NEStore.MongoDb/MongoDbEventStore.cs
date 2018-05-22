@@ -84,12 +84,19 @@ namespace NEStore.MongoDb
 			{
 				// BucketRevision is _id (automatically indexed and unique)
 				new CreateIndexModel<CommitData<T>>(builder
-					.Ascending(p => p.Dispatched), new CreateIndexOptions { Name = "Dispatched" }),
+					.Ascending(p => p.Dispatched), 
+				  new CreateIndexOptions { Name = "Dispatched" }),
 				new CreateIndexModel<CommitData<T>>(builder
-					.Ascending(p => p.StreamId), new CreateIndexOptions { Name = "StreamId" }),
+					.Ascending(p => p.StreamId), 
+				  new CreateIndexOptions { Name = "StreamId" }),
 				new CreateIndexModel<CommitData<T>>(builder
 					.Ascending(p => p.StreamId)
-					.Ascending(p => p.StreamRevisionStart), new CreateIndexOptions { Name = "StreamRevision", Unique = true })
+					.Ascending(p => p.StreamRevisionStart), 
+				  new CreateIndexOptions { Name = "StreamRevision", Unique = true }),
+				new CreateIndexModel<CommitData<T>>(builder
+				  .Ascending(p => p.StreamId)
+          .Ascending(p => p.BucketRevision),
+				  new CreateIndexOptions { Name = "CompoundStreamId", Unique = true })
 			}).ConfigureAwait(false);
 		}
 
