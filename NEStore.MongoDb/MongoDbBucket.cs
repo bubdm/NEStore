@@ -55,10 +55,13 @@ namespace NEStore.MongoDb
 				await Collection.InsertOneAsync(commit)
 					.ConfigureAwait(false);
 			}
-			catch (MongoWriteException ex)
+			catch (MongoWriteException ex) when (ex.IsDuplicateKeyException())
 			{
-				if (ex.IsDuplicateKeyException())
-					throw new ConcurrencyWriteException($"Someone else is working on the same bucket ({BucketName}) or stream ({commit.StreamId})", ex);
+				throw new ConcurrencyWriteException($"Someone else is working on the same bucket ({BucketName}) or stream ({commit.StreamId})", ex);
+			}
+			catch (MongoWriteException)
+			{
+				//TODO: do we need to rethrow the exception?
 			}
 
 			var dispatchTask = DispatchCommitAsync(commit);

@@ -1,6 +1,4 @@
-﻿using System;
-using System.Threading.Tasks;
-using MongoDB.Bson.Serialization;
+﻿using System.Threading.Tasks;
 using MongoDB.Driver;
 
 namespace NEStore.MongoDb.AutoIncrementStrategies
@@ -61,10 +59,8 @@ namespace NEStore.MongoDb.AutoIncrementStrategies
 			{
 				await _collection.InsertOneAsync(counter).ConfigureAwait(false);
 			}
-			catch (MongoWriteException ex)
+			catch (MongoWriteException ex) when (ex.IsDuplicateKeyException())
 			{
-				if (!ex.IsDuplicateKeyException())
-					throw;
 			}
 		}
 	}

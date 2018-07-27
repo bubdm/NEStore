@@ -61,6 +61,7 @@ namespace NEStore
 		/// <param name="fromBucketRevision">Start bucket revision</param>
 		/// <param name="toBucketRevision">End bucket revision</param>
 		/// <param name="dispatched">Include/exclude dispatched</param>
+		/// <param name="limit">Number of items returned</param>
 		/// <returns>List of commits matching filters</returns>
 		Task<IEnumerable<CommitData<T>>> GetCommitsAsync(
 			Guid? streamId = null,
