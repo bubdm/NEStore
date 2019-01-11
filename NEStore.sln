@@ -1,21 +1,22 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 14
-VisualStudioVersion = 14.0.25420.1
+# Visual Studio 15
+VisualStudioVersion = 15.0.27703.2047
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NEStore", "NEStore\NEStore.csproj", "{634C4F27-B136-43E0-AFE5-8D9ECC6C83CB}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "NEStore", "NEStore\NEStore.csproj", "{634C4F27-B136-43E0-AFE5-8D9ECC6C83CB}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NEStore.MongoDb", "NEStore.MongoDb\NEStore.MongoDb.csproj", "{330F142E-5227-49EE-9DEE-E37FD638172D}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "NEStore.MongoDb", "NEStore.MongoDb\NEStore.MongoDb.csproj", "{330F142E-5227-49EE-9DEE-E37FD638172D}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NEStore.MongoDb.Tests", "NEStore.MongoDb.Tests\NEStore.MongoDb.Tests.csproj", "{A1C4BBB6-996A-46C9-B301-FE4BF0249A76}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "NEStore.MongoDb.Tests", "NEStore.MongoDb.Tests\NEStore.MongoDb.Tests.csproj", "{A1C4BBB6-996A-46C9-B301-FE4BF0249A76}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SampleMovieCatalog", "SampleMovieCatalog\SampleMovieCatalog.csproj", "{D441C9B1-D758-49B0-9F01-AC669841A7E7}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SampleMovieCatalog", "SampleMovieCatalog\SampleMovieCatalog.csproj", "{D441C9B1-D758-49B0-9F01-AC669841A7E7}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NEStore.DomainObjects", "NEStore.DomainObjects\NEStore.DomainObjects.csproj", "{911A8DDE-FD02-4D70-BEAB-86B9E8663BD3}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "NEStore.DomainObjects", "NEStore.DomainObjects\NEStore.DomainObjects.csproj", "{911A8DDE-FD02-4D70-BEAB-86B9E8663BD3}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{7E78E06B-3E73-4F7D-9EC9-FFDE73569830}"
 	ProjectSection(SolutionItems) = preProject
 		.gitignore = .gitignore
+		GitVersion.yml = GitVersion.yml
 		LICENSE = LICENSE
 		README.md = README.md
 	EndProjectSection
@@ -49,5 +50,8 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {D33DD7E5-62E3-419A-9754-CFB8261732AF}
 	EndGlobalSection
 EndGlobal
