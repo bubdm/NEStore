@@ -88,15 +88,19 @@ namespace NEStore.MongoDb
       if (toBucketRevision != null)
 				filter = filter & Builders<CommitData<T>>.Filter.Lte(p => p.BucketRevision, toBucketRevision.Value);
 
-			var commits = await Collection
-				.Find(filter)
-				.Sort(Builders<CommitData<T>>.Sort.Ascending(p => p.BucketRevision))
-				.ToListAsync()
-				.ConfigureAwait(false);
+      var commits = new List<CommitData<T>>();
 
-			foreach (var commit in commits)
-				await DispatchCommitAsyncFixIssue(commit)
-					.ConfigureAwait(false);
+      using (var cursor = await Collection
+        .Find(filter)
+        .Sort(Builders<CommitData<T>>.Sort.Ascending(p => p.BucketRevision))
+        .ToCursorAsync().ConfigureAwait(false))
+      {
+        await cursor.ForEachAsync(async commit => 
+        {
+          await DispatchCommitAsyncFixIssue(commit).ConfigureAwait(false);
+          commits.Add(commit);
+        }).ConfigureAwait(false);
+      }
 
 			return commits.ToArray();
 		}
