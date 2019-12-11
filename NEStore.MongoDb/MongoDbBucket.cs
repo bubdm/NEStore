@@ -95,7 +95,7 @@ namespace NEStore.MongoDb
 				.ConfigureAwait(false);
 
 			foreach (var commit in commits)
-				await DispatchCommitAsyncMlb(commit)
+				await DispatchCommitAsyncFixIssue(commit)
 					.ConfigureAwait(false);
 
 			return commits.ToArray();
@@ -337,7 +337,7 @@ namespace NEStore.MongoDb
         .ConfigureAwait(false);
     }
 
-    private async Task DispatchCommitAsyncMlb(CommitData<T> commit)
+    private async Task DispatchCommitAsyncFixIssue(CommitData<T> commit)
     {
       try
       {
@@ -355,7 +355,7 @@ namespace NEStore.MongoDb
       catch (Exception ex)
       {
         _logger.Error(
-          $"MLB FIX. An error occurred while processing commit with revision '{commit.BucketRevision}' and entity id: '{commit.StreamId}'.",
+          $"ISSUE FIX. An error occurred while processing commit with revision '{commit.BucketRevision}' and entity id: '{commit.StreamId}'.",
           ex);
       }
     }
