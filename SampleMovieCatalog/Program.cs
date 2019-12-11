@@ -4,8 +4,10 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using Deltatre.CMS.Diagnostics;
 using Microsoft.Extensions.Configuration;
 using MongoDB.Bson.Serialization.Conventions;
+using Moq;
 using NEStore;
 using NEStore.DomainObjects.Aggregates;
 using NEStore.DomainObjects.Events;
@@ -44,7 +46,7 @@ namespace SampleMovieCatalog
       var configuration = builder.Build();
 
       var mongoDbConnectionString = configuration["mongoTest"];
-      _eventStore = new MongoDbEventStore<IEvent>(mongoDbConnectionString);
+      _eventStore = new MongoDbEventStore<IEvent>(mongoDbConnectionString, new Mock<ILogger>().Object);
       _eventStore.AutonIncrementStrategy = new IncrementCountersStrategy<IEvent>(_eventStore);
       _eventStore.RegisterDispatchers(
         _moviesProjection = new InMemoryMoviesProjection(),

@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using Deltatre.CMS.Diagnostics;
 using MongoDB.Bson;
 using MongoDB.Driver;
 using NEStore.MongoDb.AutoIncrementStrategies;
@@ -42,17 +43,19 @@ namespace NEStore.MongoDb
 		/// </summary>
 		public IUndispatchedStrategy<T> UndispatchedStrategy { get; set; }
 
+    private readonly ILogger _logger;
+
 		static MongoDbEventStore()
 		{
 			MongoDbSerialization.RegisterCommitData<T>();
 		}
 
-		public MongoDbEventStore(string connectionString)
-			:this(connectionString, GetDefaultDatabaseSettings(connectionString))
+		public MongoDbEventStore(string connectionString, ILogger logger)
+			:this(connectionString, GetDefaultDatabaseSettings(connectionString), logger)
 		{
 		}
 
-		public MongoDbEventStore(string connectionString, MongoDatabaseSettings settings)
+		public MongoDbEventStore(string connectionString, MongoDatabaseSettings settings, ILogger logger)
 		{
 			var url = new MongoUrlBuilder(connectionString);
 
@@ -64,6 +67,7 @@ namespace NEStore.MongoDb
 
 			AutonIncrementStrategy = new IncrementCountersStrategy<T>(this);
 			UndispatchedStrategy = new UndispatchAllStrategy<T>();
+      _logger = logger;
 		}
 
 		/// <summary>
@@ -120,7 +124,7 @@ namespace NEStore.MongoDb
 		{
 			return _buckets.GetOrAdd(
 				bucketName,
-				b => new MongoDbBucket<T>(this, b)
+				b => new MongoDbBucket<T>(this, b, _logger)
 				);
 		}
 

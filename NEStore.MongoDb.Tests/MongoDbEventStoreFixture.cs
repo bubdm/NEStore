@@ -2,6 +2,7 @@
 using System.Configuration;
 using System.Linq;
 using System.Threading.Tasks;
+using Deltatre.CMS.Diagnostics;
 using Moq;
 using NEStore.MongoDb.UndispatchedStrategies;
 
@@ -49,7 +50,7 @@ namespace NEStore.MongoDb.Tests
 		{
 			var cns = ConfigurationManager.ConnectionStrings["mongoTest"].ConnectionString;
 
-			return new MongoDbEventStore<T>(cns);
+			return new MongoDbEventStore<T>(cns, new Mock<ILogger>().Object);
 		}
 
 		private static string RandomString(int seed, int length)

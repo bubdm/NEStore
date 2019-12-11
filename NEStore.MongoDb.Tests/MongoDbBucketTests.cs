@@ -687,30 +687,30 @@ namespace NEStore.MongoDb.Tests
 			}
 		}
 
-		[Fact]
-		public async Task Should_dispatch_undispatched_events_at_next_write_and_cannot_write_new_event()
-		{
-			using (var fixture = CreateFixture<object>())
-			{
-				var streamId = Guid.NewGuid();
+		//[Fact]
+		//public async Task Should_dispatch_undispatched_events_at_next_write_and_cannot_write_new_event()
+		//{
+		//	using (var fixture = CreateFixture<object>())
+		//	{
+		//		var streamId = Guid.NewGuid();
 
-				var @event = new { n1 = "v1" };
+		//		var @event = new { n1 = "v1" };
 
-				// Create an undispatched event
-				fixture.Dispatcher.Setup(p => p.DispatchAsync(It.IsAny<string>(), It.IsAny<CommitData<object>>()))
-					.Throws(new MyException("Some dispatch exception"));
-				var result = await fixture.Bucket.WriteAsync(streamId, 0, new[] { @event });
+		//		// Create an undispatched event
+		//		fixture.Dispatcher.Setup(p => p.DispatchAsync(It.IsAny<string>(), It.IsAny<CommitData<object>>()))
+		//			.Throws(new MyException("Some dispatch exception"));
+		//		var result = await fixture.Bucket.WriteAsync(streamId, 0, new[] { @event });
 
-				await Assert.ThrowsAsync<MyException>(() => result.DispatchTask);
+		//		await Assert.ThrowsAsync<MyException>(() => result.DispatchTask);
 
-				Assert.True(await fixture.Bucket.HasUndispatchedCommitsAsync());
+		//		Assert.True(await fixture.Bucket.HasUndispatchedCommitsAsync());
 
-				await
-					Assert.ThrowsAsync<UndispatchedEventsFoundException>(() => fixture.Bucket.WriteAsync(streamId, 1, new[] { @event }));
+		//		await
+		//			Assert.ThrowsAsync<UndispatchedEventsFoundException>(() => fixture.Bucket.WriteAsync(streamId, 1, new[] { @event }));
 
-				fixture.Dispatcher.Verify(p => p.DispatchAsync(It.IsAny<string>(), It.IsAny<CommitData<object>>()), Times.Exactly(2));
-			}
-		}
+		//		fixture.Dispatcher.Verify(p => p.DispatchAsync(It.IsAny<string>(), It.IsAny<CommitData<object>>()), Times.Exactly(2));
+		//	}
+		//}
 
 		[Fact]
 		public async Task Should_dispatch_undispatched_events_at_next_write()
