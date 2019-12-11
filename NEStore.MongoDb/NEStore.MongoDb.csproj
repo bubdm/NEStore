@@ -16,6 +16,7 @@
     <PackageReference Include="ConfigureAwaitChecker.Analyzer" Version="1.0.1">
       <PrivateAssets>All</PrivateAssets>
     </PackageReference>
+    <PackageReference Include="Deltatre.CMS.Diagnostics" Version="3.1.1" />
     <PackageReference Include="MongoDB.Driver" Version="2.7.0" />
   </ItemGroup>
 

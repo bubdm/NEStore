@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Deltatre.CMS.Diagnostics;
 using MongoDB.Driver;
 
 namespace NEStore.MongoDb
@@ -10,16 +11,19 @@ namespace NEStore.MongoDb
 	{
 		private volatile bool _indexesEnsured;
 		private readonly MongoDbEventStore<T> _eventStore;
+    private readonly ILogger _logger;
+
 		public IMongoCollection<CommitData<T>> Collection { get; }
 		public IMongoCollection<CommitInfo> InfoCollection { get; }
 		public string BucketName { get; }
 
-		public MongoDbBucket(MongoDbEventStore<T> eventStore, string bucketName)
+		public MongoDbBucket(MongoDbEventStore<T> eventStore, string bucketName, ILogger logger)
 		{
 			_eventStore = eventStore;
 			Collection = eventStore.CollectionFromBucket<CommitData<T>>(bucketName);
 			InfoCollection = eventStore.CollectionFromBucket<CommitInfo>(bucketName);
 			BucketName = bucketName;
+      _logger = logger;
 		}
 
 		/// <summary>
@@ -72,12 +76,16 @@ namespace NEStore.MongoDb
 		/// <summary>
 		/// Dispatch all commits where dispatched attribute is set to false
 		/// </summary>
-		public async Task<CommitData<T>[]> DispatchUndispatchedAsync(Guid? streamId = null, long? toBucketRevision = null)
+		public async Task<CommitData<T>[]> DispatchUndispatchedAsync(
+      Guid? streamId = null,
+      long? toBucketRevision = null)
 		{
 			var filter = Builders<CommitData<T>>.Filter.Eq(p => p.Dispatched, false);
-			if (streamId != null)
+
+      if (streamId != null)
 				filter = filter & Builders<CommitData<T>>.Filter.Eq(p => p.StreamId, streamId.Value);
-			if (toBucketRevision != null)
+
+      if (toBucketRevision != null)
 				filter = filter & Builders<CommitData<T>>.Filter.Lte(p => p.BucketRevision, toBucketRevision.Value);
 
 			var commits = await Collection
@@ -87,7 +95,7 @@ namespace NEStore.MongoDb
 				.ConfigureAwait(false);
 
 			foreach (var commit in commits)
-				await DispatchCommitAsync(commit)
+				await DispatchCommitAsyncMlb(commit)
 					.ConfigureAwait(false);
 
 			return commits.ToArray();
@@ -317,25 +325,48 @@ namespace NEStore.MongoDb
 		/// <param name="commit">Commit to be dispatched</param>
 		private async Task DispatchCommitAsync(CommitData<T> commit)
 		{
-			var dispatchers = _eventStore.GetDispatchers();
+      var dispatchers = _eventStore.GetDispatchers();
 
-			await Task.WhenAll(dispatchers.Select(x => x.DispatchAsync(BucketName, commit)))
-				.ConfigureAwait(false);
+      await Task.WhenAll(dispatchers.Select(x => x.DispatchAsync(BucketName, commit)))
+        .ConfigureAwait(false);
 
-		  var commitBucketRevision = commit.BucketRevision;
-		  await Collection.UpdateOneAsync(
-		      p => p.BucketRevision == commitBucketRevision,
-		      Builders<CommitData<T>>.Update.Set(p => p.Dispatched, true))
-		    .ConfigureAwait(false);
-		}
+      var commitBucketRevision = commit.BucketRevision;
+      await Collection.UpdateOneAsync(
+          p => p.BucketRevision == commitBucketRevision,
+          Builders<CommitData<T>>.Update.Set(p => p.Dispatched, true))
+        .ConfigureAwait(false);
+    }
 
-		/// <summary>
-		/// Checks if someone else is writing on the same bucket
-		/// </summary>
-		/// <param name="streamId">Unique stream identifier</param>
-		/// <param name="expectedStreamRevision">Expected revision of the provided stream</param>
-		/// <param name="lastCommit">Last commit of the bucket</param>
-		private async Task CheckStreamConsistencyBeforeWriting(Guid streamId, int expectedStreamRevision, CommitInfo lastCommit)
+    private async Task DispatchCommitAsyncMlb(CommitData<T> commit)
+    {
+      try
+      {
+        var dispatchers = _eventStore.GetDispatchers();
+
+        await Task.WhenAll(dispatchers.Select(x => x.DispatchAsync(BucketName, commit)))
+          .ConfigureAwait(false);
+
+        var commitBucketRevision = commit.BucketRevision;
+        await Collection.UpdateOneAsync(
+            p => p.BucketRevision == commitBucketRevision,
+            Builders<CommitData<T>>.Update.Set(p => p.Dispatched, true))
+          .ConfigureAwait(false);
+      }
+      catch (Exception ex)
+      {
+        _logger.Error(
+          $"MLB FIX. An error occurred while processing commit with revision '{commit.BucketRevision}' and entity id: '{commit.StreamId}'.",
+          ex);
+      }
+    }
+
+    /// <summary>
+    /// Checks if someone else is writing on the same bucket
+    /// </summary>
+    /// <param name="streamId">Unique stream identifier</param>
+    /// <param name="expectedStreamRevision">Expected revision of the provided stream</param>
+    /// <param name="lastCommit">Last commit of the bucket</param>
+    private async Task CheckStreamConsistencyBeforeWriting(Guid streamId, int expectedStreamRevision, CommitInfo lastCommit)
 		{
 			if (!_eventStore.CheckStreamRevisionBeforeWriting)
 				return;
