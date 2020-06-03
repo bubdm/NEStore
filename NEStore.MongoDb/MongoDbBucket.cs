@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using MongoDB.Bson.Serialization;
 using MongoDB.Driver;
 
 namespace NEStore.MongoDb
@@ -135,41 +136,81 @@ namespace NEStore.MongoDb
 		/// Retrieve all events from bucket filtered by params
 		/// </summary>
 		/// <param name="streamId">Unique stream identifier</param>
-		/// <param name="fromStreamRevision">Start stream revision</param>
-		/// <param name="toStreamRevision">End stream revision</param>
-		/// <returns>Flattered list of events retrieved from commits</returns>
-		public async Task<IEnumerable<T>> GetEventsForStreamAsync(Guid streamId, int fromStreamRevision = 1, int? toStreamRevision = null)
+		/// <param name="fromStreamRevision">
+		/// Start stream revision. This point is included in the performed search.
+		/// </param>
+		/// <param name="toStreamRevision">
+		/// End stream revision. This point is included in the performed search.
+		/// </param>
+		/// <returns>
+		/// Flattered list of events retrieved from commits
+		/// </returns>
+		/// <remarks>
+		/// This method is meant to return the event which transition the aggregate 
+		/// to revision fromStreamRevision, the event which transition the aggregate to
+		/// revision fromStreamRevision + 1, the event which transition the aggregate to
+		/// revision fromStreamRevision + 2, ..., the event which transition the aggregate to
+		/// revision toStreamRevision. Both the ends (fromStreamRevision and toStreamRevision) are included.
+		/// </remarks>
+		public async Task<IEnumerable<T>> GetEventsForStreamAsync(
+			Guid streamId,
+			int fromStreamRevision = 1,
+			int? toStreamRevision = null)
 		{
 			if (fromStreamRevision <= 0)
-				throw new ArgumentOutOfRangeException(nameof(fromStreamRevision),
-						"Parameter must be greater than 0.");
+			{
+				throw new ArgumentOutOfRangeException(
+					nameof(fromStreamRevision),
+					$"Parameter {nameof(fromStreamRevision)} must be greater than 0.");
+			}
 
-			if (toStreamRevision <= 0)
-				throw new ArgumentOutOfRangeException(nameof(toStreamRevision), "Parameter must be greater than 0.");
+			if (toStreamRevision.HasValue && toStreamRevision.Value < fromStreamRevision) 
+			{
+				throw new ArgumentOutOfRangeException(
+					nameof(toStreamRevision),
+					$"When parameter {nameof(toStreamRevision)} is not null, it must be greater than or equal to parameter ${nameof(fromStreamRevision)}.");
+			}
 
-			var filter = Builders<CommitData<T>>.Filter.Eq(p => p.StreamId, streamId);
+			var filter = Builders<CommitData<T>>
+				.Filter
+				.Eq(p => p.StreamId, streamId);
 
-			// Note: I cannot filter the start because I don't want to query mongo using non indexed fields
-			//  and I assume that for one stream we should not have so many events ...
-			if (toStreamRevision != null)
-				filter = filter & Builders<CommitData<T>>.Filter.Lt(p => p.StreamRevisionStart, toStreamRevision.Value);
+			filter &= Builders<CommitData<T>>
+				.Filter
+				.Gte(c => c.StreamRevisionEnd, fromStreamRevision);
 
-			var commitEvents = await Collection
+			var normalizedToStreamRevision = toStreamRevision ?? int.MaxValue;
+
+			filter &= Builders<CommitData<T>>
+				.Filter
+				.Lt(p => p.StreamRevisionStart, normalizedToStreamRevision);
+
+			var commits = await Collection
 				.Find(filter)
 				.Sort(Builders<CommitData<T>>.Sort.Ascending(p => p.BucketRevision))
-			  .Project(p => p.Events)
 				.ToListAsync()
 				.ConfigureAwait(false);
-			
-			var events = commitEvents.SelectMany(p => p).ToArray();
 
-			var safeFrom = fromStreamRevision;
-		  var safeTo = toStreamRevision ?? events.Length;
+			return commits.SelectMany(commit =>
+			{
+				var commitStartRevision = commit.StreamRevisionStart;
 
-			return events
-				.Skip(safeFrom - 1)
-				.Take(safeTo - safeFrom + 1)
-				.ToList();
+				return commit
+					.Events
+					.Select((@event, index) =>
+					{
+						var eventStartRevision = commit.StreamRevisionStart + index;
+						var eventEndRevision = eventStartRevision + 1;
+						return (@event, eventEndRevision);
+					});
+			})
+			.Where(tuple =>
+			{
+				var (@event, endRevision) = tuple;
+				return endRevision >= fromStreamRevision && endRevision <= normalizedToStreamRevision;
+			})
+			.Select(tuple => tuple.@event)
+			.ToList();
 		}
 
 		/// <summary>

@@ -86,17 +86,29 @@ namespace NEStore.MongoDb
 				new CreateIndexModel<CommitData<T>>(builder
 					.Ascending(p => p.Dispatched), 
 				  new CreateIndexOptions { Name = "Dispatched" }),
+
 				new CreateIndexModel<CommitData<T>>(builder
 					.Ascending(p => p.StreamId), 
 				  new CreateIndexOptions { Name = "StreamId" }),
+				
 				new CreateIndexModel<CommitData<T>>(builder
 					.Ascending(p => p.StreamId)
 					.Ascending(p => p.StreamRevisionStart), 
 				  new CreateIndexOptions { Name = "StreamRevision", Unique = true }),
+				
 				new CreateIndexModel<CommitData<T>>(builder
 				  .Ascending(p => p.StreamId)
           .Ascending(p => p.BucketRevision),
-				  new CreateIndexOptions { Name = "CompoundStreamId", Unique = true })
+				  new CreateIndexOptions { Name = "CompoundStreamId", Unique = true }),
+
+				new CreateIndexModel<CommitData<T>>(
+					builder
+						.Ascending(x => x.StreamId)
+						.Ascending(x => x.BucketRevision)
+						.Ascending(x => x.StreamRevisionStart)
+						.Ascending(x => x.StreamRevisionEnd),
+					new CreateIndexOptions { Name = "GetEventsForStream" }
+				)
 			}).ConfigureAwait(false);
 		}
 

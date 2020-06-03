@@ -49,9 +49,22 @@ namespace NEStore
 		/// Retrieve all events from bucket filtered by params
 		/// </summary>
 		/// <param name="streamId">Unique stream identifier</param>
-		/// <param name="fromStreamRevision">Start stream revision</param>
-		/// <param name="toStreamRevision">End stream revision</param>
-		/// <returns>Flattered list of events retrieved from commits</returns>
+		/// <param name="fromStreamRevision">
+		/// Start stream revision. This point is included in the performed search.
+		/// </param>
+		/// <param name="toStreamRevision">
+		/// End stream revision. This point is included in the performed search.
+		/// </param>
+		/// <returns>
+		/// Flattered list of events retrieved from commits
+		/// </returns>
+		/// <remarks>
+		/// This method is meant to return the event which transition the aggregate 
+		/// to revision fromStreamRevision, the event which transition the aggregate to
+		/// revision fromStreamRevision + 1, the event which transition the aggregate to
+		/// revision fromStreamRevision + 2, ..., the event which transition the aggregate to
+		/// revision toStreamRevision. Both the ends (fromStreamRevision and toStreamRevision) are included.
+		/// </remarks>
 		Task<IEnumerable<T>> GetEventsForStreamAsync(Guid streamId, int fromStreamRevision = 1, int? toStreamRevision = null);
 
 		/// <summary>
