@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace NEStore
@@ -55,6 +56,7 @@ namespace NEStore
 		/// <param name="toStreamRevision">
 		/// End stream revision. This point is included in the performed search.
 		/// </param>
+		/// <param name="token">The Cancellation Token</param>
 		/// <returns>
 		/// Flattered list of events retrieved from commits
 		/// </returns>
@@ -65,7 +67,7 @@ namespace NEStore
 		/// revision fromStreamRevision + 2, ..., the event which transition the aggregate to
 		/// revision toStreamRevision. Both the ends (fromStreamRevision and toStreamRevision) are included.
 		/// </remarks>
-		Task<IEnumerable<T>> GetEventsForStreamAsync(Guid streamId, int fromStreamRevision = 1, int? toStreamRevision = null);
+		Task<IEnumerable<T>> GetEventsForStreamAsync(Guid streamId, int fromStreamRevision = 1, int? toStreamRevision = null, CancellationToken token = default);
 
 		/// <summary>
 		/// Retrieve all commits from bucket filtered by params. Ordered by bucket revision.

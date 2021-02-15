@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
-using MongoDB.Bson.Serialization;
 using MongoDB.Driver;
 
 namespace NEStore.MongoDb
@@ -142,6 +142,7 @@ namespace NEStore.MongoDb
 		/// <param name="toStreamRevision">
 		/// End stream revision. This point is included in the performed search.
 		/// </param>
+		/// <param name="token">The Cancellation Token</param>
 		/// <returns>
 		/// Flattered list of events retrieved from commits
 		/// </returns>
@@ -155,7 +156,8 @@ namespace NEStore.MongoDb
 		public async Task<IEnumerable<T>> GetEventsForStreamAsync(
 			Guid streamId,
 			int fromStreamRevision = 1,
-			int? toStreamRevision = null)
+			int? toStreamRevision = null,
+			CancellationToken token = default)
 		{
 			if (fromStreamRevision <= 0)
 			{
@@ -188,13 +190,11 @@ namespace NEStore.MongoDb
 			var commits = await Collection
 				.Find(filter)
 				.Sort(Builders<CommitData<T>>.Sort.Ascending(p => p.BucketRevision))
-				.ToListAsync()
+				.ToListAsync(token)
 				.ConfigureAwait(false);
 
 			return commits.SelectMany(commit =>
 			{
-				var commitStartRevision = commit.StreamRevisionStart;
-
 				return commit
 					.Events
 					.Select((@event, index) =>
@@ -206,7 +206,7 @@ namespace NEStore.MongoDb
 			})
 			.Where(tuple =>
 			{
-				var (@event, endRevision) = tuple;
+				var (_, endRevision) = tuple;
 				return endRevision >= fromStreamRevision && endRevision <= normalizedToStreamRevision;
 			})
 			.Select(tuple => tuple.@event)
