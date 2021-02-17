@@ -29,8 +29,9 @@ namespace NEStore.MongoDb
 		/// <param name="streamId">Unique stream identifier</param>
 		/// <param name="expectedStreamRevision">Expected revision of the provided stream</param>
 		/// <param name="events">List of events to commit</param>
+		/// <param name="token">The Cancellation Token</param>
 		/// <returns>WriteResult object containing the commit persisted and the DispatchTask of the events</returns>
-		public async Task<WriteResult<T>> WriteAsync(Guid streamId, int expectedStreamRevision, IEnumerable<T> events)
+		public async Task<WriteResult<T>> WriteAsync(Guid streamId, int expectedStreamRevision, IEnumerable<T> events, CancellationToken token = default)
 		{
 			if (expectedStreamRevision < 0)
 				throw new ArgumentOutOfRangeException(nameof(expectedStreamRevision));
@@ -53,7 +54,7 @@ namespace NEStore.MongoDb
 
 			try
 			{
-				await Collection.InsertOneAsync(commit)
+				await Collection.InsertOneAsync(commit, cancellationToken: token)
 					.ConfigureAwait(false);
 			}
 			catch (MongoWriteException ex) when (ex.IsDuplicateKeyException())
@@ -73,7 +74,7 @@ namespace NEStore.MongoDb
 		/// <summary>
 		/// Dispatch all commits where dispatched attribute is set to false
 		/// </summary>
-		public async Task<CommitData<T>[]> DispatchUndispatchedAsync(Guid? streamId = null, long? toBucketRevision = null)
+		public async Task<CommitData<T>[]> DispatchUndispatchedAsync(Guid? streamId = null, long? toBucketRevision = null, CancellationToken token = default)
 		{
 			var filter = Builders<CommitData<T>>.Filter.Eq(p => p.Dispatched, false);
 			if (streamId != null)
@@ -84,7 +85,7 @@ namespace NEStore.MongoDb
 			var commits = await Collection
 				.Find(filter)
 				.Sort(Builders<CommitData<T>>.Sort.Ascending(p => p.BucketRevision))
-				.ToListAsync()
+				.ToListAsync(token)
 				.ConfigureAwait(false);
 
 			foreach (var commit in commits)
@@ -97,22 +98,23 @@ namespace NEStore.MongoDb
 		/// <summary>
 		/// Set all undispatched events as dispatched, without dispatching them
 		/// </summary>
-		public async Task SetAllAsDispatched()
+		public async Task SetAllAsDispatched(CancellationToken token = default)
 		{
-		  await Collection
-		    .UpdateManyAsync(Builders<CommitData<T>>.Filter.Eq(p => p.Dispatched, false),
-		                     Builders<CommitData<T>>.Update.Set(p => p.Dispatched, true))
-		    .ConfigureAwait(false);
+			await Collection
+				.UpdateManyAsync(Builders<CommitData<T>>.Filter.Eq(p => p.Dispatched, false),
+												 Builders<CommitData<T>>.Update.Set(p => p.Dispatched, true), cancellationToken: token)
+				.ConfigureAwait(false);
 		}
 
 		/// <summary>
 		/// Delete all commits succeeding the revision provided
 		/// </summary>
 		/// <param name="bucketRevision">Revision of last commit to keep</param>
-		public async Task RollbackAsync(long bucketRevision)
+		/// <param name="token">The Cancellation Token</param>
+		public async Task RollbackAsync(long bucketRevision, CancellationToken token = default)
 		{
 			await Collection
-				.DeleteManyAsync(p => p.BucketRevision > bucketRevision).ConfigureAwait(false);
+				.DeleteManyAsync(p => p.BucketRevision > bucketRevision, token).ConfigureAwait(false);
 
 			await _eventStore.AutonIncrementStrategy.RollbackAsync(BucketName, bucketRevision).ConfigureAwait(false);
 		}
@@ -123,10 +125,11 @@ namespace NEStore.MongoDb
 		/// <param name="streamId">Unique stream identifier</param>
 		/// <param name="fromBucketRevision">Start bucket revision</param>
 		/// <param name="toBucketRevision">End bucket revision</param>
+		/// <param name="token">The Cancellation Token</param>
 		/// <returns>Flattered list of events retrieved from commits</returns>
-		public async Task<IEnumerable<T>> GetEventsAsync(Guid? streamId = null, long fromBucketRevision = 1, long? toBucketRevision = null)
+		public async Task<IEnumerable<T>> GetEventsAsync(Guid? streamId = null, long fromBucketRevision = 1, long? toBucketRevision = null, CancellationToken token = default)
 		{
-			var commits = await GetCommitsAsync(streamId, fromBucketRevision, toBucketRevision)
+			var commits = await GetCommitsAsync(streamId, fromBucketRevision, toBucketRevision, token: token)
 				.ConfigureAwait(false);
 
 			return commits.SelectMany(c => c.Events);
@@ -166,7 +169,7 @@ namespace NEStore.MongoDb
 					$"Parameter {nameof(fromStreamRevision)} must be greater than 0.");
 			}
 
-			if (toStreamRevision.HasValue && toStreamRevision.Value < fromStreamRevision) 
+			if (toStreamRevision.HasValue && toStreamRevision.Value < fromStreamRevision)
 			{
 				throw new ArgumentOutOfRangeException(
 					nameof(toStreamRevision),
@@ -221,13 +224,15 @@ namespace NEStore.MongoDb
 		/// <param name="toBucketRevision">End bucket revision</param>
 		/// <param name="dispatched">Include/exclude dispatched</param>
 		/// <param name="limit">Limit</param>
+		/// <param name="token">The Cancellation Token</param>
 		/// <returns>List of commits matching filters</returns>
 		public async Task<IEnumerable<CommitData<T>>> GetCommitsAsync(
 			Guid? streamId = null,
 			long fromBucketRevision = 1,
 			long? toBucketRevision = null,
 			bool? dispatched = null,
-			int? limit = null)
+			int? limit = null,
+			CancellationToken token = default)
 		{
 			if (fromBucketRevision <= 0)
 				throw new ArgumentOutOfRangeException(nameof(fromBucketRevision),
@@ -252,7 +257,7 @@ namespace NEStore.MongoDb
 				.Find(filter)
 				.Sort(Builders<CommitData<T>>.Sort.Ascending(p => p.BucketRevision))
 				.Limit(limit)
-				.ToListAsync()
+				.ToListAsync(token)
 				.ConfigureAwait(false);
 
 			return commits;
@@ -263,8 +268,9 @@ namespace NEStore.MongoDb
 		/// </summary>
 		/// <param name="streamId">Unique stream identifier</param>
 		/// <param name="atBucketRevision">Get the last commit less or equal the specified bucket revision</param>
+		/// <param name="token">The Cancellation Token</param>
 		/// <returns>Last commit info</returns>
-		public async Task<CommitInfo> GetLastCommitAsync(Guid? streamId = null, long? atBucketRevision = null)
+		public async Task<CommitInfo> GetLastCommitAsync(Guid? streamId = null, long? atBucketRevision = null, CancellationToken token = default)
 		{
 			if (atBucketRevision <= 0)
 				throw new ArgumentOutOfRangeException(nameof(atBucketRevision), "Parameter must be greater than 0.");
@@ -278,7 +284,7 @@ namespace NEStore.MongoDb
 			var result = await InfoCollection
 				.Find(filter)
 				.Sort(Builders<CommitInfo>.Sort.Descending(p => p.BucketRevision))
-				.FirstOrDefaultAsync()
+				.FirstOrDefaultAsync(token)
 				.ConfigureAwait(false);
 
 			return result;
@@ -289,8 +295,9 @@ namespace NEStore.MongoDb
 		/// </summary>
 		/// <param name="fromBucketRevision">Min bucket revision</param>
 		/// <param name="toBucketRevision">Max bucket revision</param>
+		/// <param name="token">The Cancellation Token</param>
 		/// <returns>List of streams identifiers</returns>
-		public async Task<IEnumerable<Guid>> GetStreamIdsAsync(long fromBucketRevision = 1, long? toBucketRevision = null)
+		public async Task<IEnumerable<Guid>> GetStreamIdsAsync(long fromBucketRevision = 1, long? toBucketRevision = null, CancellationToken token = default)
 		{
 			if (fromBucketRevision <= 0)
 				throw new ArgumentOutOfRangeException(nameof(fromBucketRevision), "Parameter must be greater than 0.");
@@ -305,9 +312,9 @@ namespace NEStore.MongoDb
 				filter = filter & Builders<CommitData<T>>.Filter.Lte(p => p.BucketRevision, toBucketRevision.Value);
 
 			var cursor = await Collection
-				.DistinctAsync(p => p.StreamId, filter)
+				.DistinctAsync(p => p.StreamId, filter, cancellationToken: token)
 				.ConfigureAwait(false);
-			var result = await cursor.ToListAsync()
+			var result = await cursor.ToListAsync(token)
 				.ConfigureAwait(false);
 
 			return result;
@@ -323,7 +330,7 @@ namespace NEStore.MongoDb
 		/// <returns>CommitData object</returns>
 		private async Task<CommitData<T>> CreateCommitAsync(Guid streamId, int expectedStreamRevision, T[] eventsArray, CommitInfo lastCommit)
 		{
-			var bucketRevision =await _eventStore.AutonIncrementStrategy
+			var bucketRevision = await _eventStore.AutonIncrementStrategy
 																	.IncrementAsync(BucketName, lastCommit)
 																	.ConfigureAwait(false);
 
@@ -341,7 +348,7 @@ namespace NEStore.MongoDb
 
 		/// <summary>
 		/// Setup bucket creating Indexes
- 		/// </summary>
+		/// </summary>
 		private async Task AutoEnsureIndexesAsync()
 		{
 			if (_indexesEnsured || !_eventStore.AutoEnsureIndexes)
@@ -363,11 +370,11 @@ namespace NEStore.MongoDb
 			await Task.WhenAll(dispatchers.Select(x => x.DispatchAsync(BucketName, commit)))
 				.ConfigureAwait(false);
 
-		  var commitBucketRevision = commit.BucketRevision;
-		  await Collection.UpdateOneAsync(
-		      p => p.BucketRevision == commitBucketRevision,
-		      Builders<CommitData<T>>.Update.Set(p => p.Dispatched, true))
-		    .ConfigureAwait(false);
+			var commitBucketRevision = commit.BucketRevision;
+			await Collection.UpdateOneAsync(
+					p => p.BucketRevision == commitBucketRevision,
+					Builders<CommitData<T>>.Update.Set(p => p.Dispatched, true))
+				.ConfigureAwait(false);
 		}
 
 		/// <summary>
