@@ -39,7 +39,7 @@ namespace NEStore.MongoDb
 			await AutoEnsureIndexesAsync()
 				.ConfigureAwait(false);
 
-			var lastCommit = await GetLastCommitAsync()
+			var lastCommit = await GetLastCommitAsync(token: token)
 				.ConfigureAwait(false);
 
 			await CheckStreamConsistencyBeforeWriting(streamId, expectedStreamRevision, lastCommit)

@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace NEStore
@@ -9,13 +10,15 @@ namespace NEStore
 		/// Setup bucket
 		/// </summary>
 		/// <param name="bucketName">Bucket identifier</param>
-		Task EnsureBucketAsync(string bucketName);
+		/// <param name="token">The Cancellation Token</param>
+		Task EnsureBucketAsync(string bucketName, CancellationToken token = default);
 
 		/// <summary>
 		/// Drop bucket from durable storage
 		/// </summary>
 		/// <param name="bucketName">Bucket identifier</param>
-		Task DeleteBucketAsync(string bucketName);
+		/// <param name="token">The Cancellation Token</param>
+		Task DeleteBucketAsync(string bucketName, CancellationToken token = default);
 
 		/// <summary>
 		/// Provide the bucket instance

@@ -1,4 +1,5 @@
-﻿using System.Threading.Tasks;
+﻿using System.Threading;
+using System.Threading.Tasks;
 using NEStore.DomainObjects.Events;
 
 namespace NEStore.DomainObjects.Projections
@@ -14,7 +15,7 @@ namespace NEStore.DomainObjects.Projections
 
 		public abstract Task ClearAsync();
 		
-		public Task DispatchAsync(string bucketName, CommitData<IEvent> commit)
+		public Task DispatchAsync(string bucketName, CommitData<IEvent> commit, CancellationToken token = default)
 		{
 			foreach (var @event in commit.Events)
 			{

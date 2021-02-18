@@ -2,6 +2,7 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using MongoDB.Bson;
 using MongoDB.Driver;
@@ -70,7 +71,8 @@ namespace NEStore.MongoDb
 		/// Setup bucket creating Indexes
 		/// </summary>
 		/// <param name="bucketName">Bucket identifier</param>
-		public async Task EnsureBucketAsync(string bucketName)
+		/// <param name="token">The Cancellation Token</param>
+		public async Task EnsureBucketAsync(string bucketName, CancellationToken token = default)
 		{
 			var collection = CollectionFromBucket<CommitData<T>>(bucketName);
 
@@ -109,16 +111,17 @@ namespace NEStore.MongoDb
 						.Ascending(x => x.StreamRevisionEnd),
 					new CreateIndexOptions { Name = "GetEventsForStream" }
 				)
-			}).ConfigureAwait(false);
+			}, token).ConfigureAwait(false);
 		}
 
 		/// <summary>
 		/// Drop bucket from Mongo
 		/// </summary>
 		/// <param name="bucketName">Bucket identifier</param>
-		public async Task DeleteBucketAsync(string bucketName)
+		/// <param name="token"></param>
+		public async Task DeleteBucketAsync(string bucketName, CancellationToken token = default)
 		{
-			await Database.DropCollectionAsync(CollectionNameFromBucket(bucketName))
+			await Database.DropCollectionAsync(CollectionNameFromBucket(bucketName), token)
 										.ConfigureAwait(false);
 
 			await AutonIncrementStrategy.DeleteBucketAsync(bucketName).ConfigureAwait(false);

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Configuration;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Moq;
 using NEStore.MongoDb.UndispatchedStrategies;
@@ -28,8 +29,8 @@ namespace NEStore.MongoDb.Tests
 
 			Dispatcher = new Mock<IDispatcher<T>>();
 
-			Dispatcher.Setup(p => p.DispatchAsync(It.IsAny<string>(), It.IsAny<CommitData<T>>()))
-				.Returns<string, CommitData<T>>((b, c) => Task.Delay(dispatchDelay));
+			Dispatcher.Setup(p => p.DispatchAsync(It.IsAny<string>(), It.IsAny<CommitData<T>>(), It.IsAny<CancellationToken>()))
+				.Returns<string, CommitData<T>, CancellationToken>((b, c, d) => Task.Delay(dispatchDelay));
 
 			EventStore.RegisterDispatchers(Dispatcher.Object);
 			Bucket = EventStore.Bucket(BucketName) as MongoDbBucket<T>;
