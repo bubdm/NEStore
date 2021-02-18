@@ -1,13 +1,14 @@
 ﻿using System;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace NEStore.MongoDb.UndispatchedStrategies
 {
 	public class DisallowUndispatchedStrategy<T> : IUndispatchedStrategy<T>
 	{
-		public async Task CheckUndispatchedAsync(IBucket<T> bucket, Guid streamId)
+		public async Task CheckUndispatchedAsync(IBucket<T> bucket, Guid streamId, CancellationToken token = default)
 		{
-			var hasUndispatched = await bucket.HasUndispatchedCommitsAsync()
+			var hasUndispatched = await bucket.HasUndispatchedCommitsAsync(token: token)
 				.ConfigureAwait(false);
 
 			if (hasUndispatched)

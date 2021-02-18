@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace NEStore.MongoDb.UndispatchedStrategies
@@ -19,6 +20,6 @@ namespace NEStore.MongoDb.UndispatchedStrategies
 		/// Check if bucket has undispatched commits, if founded tries to dispatch them based on the strategy
 		/// </summary>
 		/// <returns>Throw UndispatchedEventsFoundException if undispatched commits exists and the process should exit</returns>
-		Task CheckUndispatchedAsync(IBucket<T> bucket, Guid streamId);
+		Task CheckUndispatchedAsync(IBucket<T> bucket, Guid streamId, CancellationToken token = default);
 	}
 }

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace NEStore.MongoDb.UndispatchedStrategies
@@ -30,7 +31,7 @@ namespace NEStore.MongoDb.UndispatchedStrategies
 		/// </summary>
 		public bool SameStreamOnly { get; set; } = false;
 
-		public async Task CheckUndispatchedAsync(IBucket<T> bucket, Guid streamId)
+		public async Task CheckUndispatchedAsync(IBucket<T> bucket, Guid streamId, CancellationToken token = default)
 		{
 			var sameCommitWait = TimeSpan.Zero;
 			var totalWait = TimeSpan.Zero;
@@ -42,7 +43,7 @@ namespace NEStore.MongoDb.UndispatchedStrategies
 			while (true)
 			{
 				// Check if there is an undispatched
-				var undispatched = await bucket.GetFirstUndispatchedCommitAsync(filterByStreamId)
+				var undispatched = await bucket.GetFirstUndispatchedCommitAsync(filterByStreamId, token)
 					.ConfigureAwait(false);
 
 				// No more undispatched
@@ -57,7 +58,7 @@ namespace NEStore.MongoDb.UndispatchedStrategies
 				}
 
 				// Wait
-				await Task.Delay(AutoDispatchCheckInterval)
+				await Task.Delay(AutoDispatchCheckInterval, token)
 					.ConfigureAwait(false);
 
 				totalWait += AutoDispatchCheckInterval;
@@ -67,16 +68,16 @@ namespace NEStore.MongoDb.UndispatchedStrategies
 					throw new UndispatchedEventsFoundException("Undispatched events found");
 
 				if (sameCommitWait >= AutoDispatchWaitTime)
-					await DispatchLastCommitAsync(bucket, filterByStreamId, undispatched.BucketRevision)
+					await DispatchLastCommitAsync(bucket, filterByStreamId, undispatched.BucketRevision, token)
 						.ConfigureAwait(false);
 			}
 		}
 
-		private static async Task DispatchLastCommitAsync(IBucket<T> bucket, Guid? filterByStreamId, long atBucketRevision)
+		private static async Task DispatchLastCommitAsync(IBucket<T> bucket, Guid? filterByStreamId, long atBucketRevision, CancellationToken token = default)
 		{
 			try
 			{
-				await bucket.DispatchUndispatchedAsync(filterByStreamId, atBucketRevision)
+				await bucket.DispatchUndispatchedAsync(filterByStreamId, atBucketRevision, token)
 					.ConfigureAwait(false);
 			}
 			catch (Exception ex)

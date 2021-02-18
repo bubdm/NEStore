@@ -1,4 +1,5 @@
-﻿using System.Threading.Tasks;
+﻿using System.Threading;
+using System.Threading.Tasks;
 using MongoDB.Driver;
 
 namespace NEStore.MongoDb.AutoIncrementStrategies
@@ -12,7 +13,7 @@ namespace NEStore.MongoDb.AutoIncrementStrategies
 			_collection = eventStore.Database.GetCollection<Counter>("counters");
 		}
 
-		public async Task<long> IncrementAsync(string bucketName, CommitInfo lastCommit)
+		public async Task<long> IncrementAsync(string bucketName, CommitInfo lastCommit, CancellationToken token = default)
 		{
 			var update = Builders<Counter>.Update.Inc(x => x.BucketRevision, 1);
 			var projection = Builders<Counter>.Projection.Expression(x => x.BucketRevision);
@@ -26,8 +27,7 @@ namespace NEStore.MongoDb.AutoIncrementStrategies
 			var updatedCounter = await _collection.FindOneAndUpdateAsync(
 				prop => prop.BucketName == bucketName,
 				update,
-				options
-				).ConfigureAwait(false);
+				options, token).ConfigureAwait(false);
 
 			if (updatedCounter != 0) return updatedCounter;
 
@@ -40,16 +40,16 @@ namespace NEStore.MongoDb.AutoIncrementStrategies
 			return await IncrementAsync(bucketName, lastCommit).ConfigureAwait(false);
 		}
 
-		public async Task RollbackAsync(string bucketName, long bucketRevision)
+		public async Task RollbackAsync(string bucketName, long bucketRevision, CancellationToken token = default)
 		{
 			var update = Builders<Counter>.Update.Set(x => x.BucketRevision, bucketRevision);
 
-			await _collection.UpdateOneAsync(prop => prop.BucketName == bucketName, update).ConfigureAwait(false);
+			await _collection.UpdateOneAsync(prop => prop.BucketName == bucketName, update, cancellationToken: token).ConfigureAwait(false);
 		}
 
-		public async Task DeleteBucketAsync(string bucketName)
+		public async Task DeleteBucketAsync(string bucketName, CancellationToken token = default)
 		{
-			await _collection.DeleteOneAsync(prop => prop.BucketName == bucketName).ConfigureAwait(false);
+			await _collection.DeleteOneAsync(prop => prop.BucketName == bucketName, token).ConfigureAwait(false);
 		}
 
 
